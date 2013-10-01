@@ -473,6 +473,39 @@ def getWorkflowsList(query, ticket):
     return ret
 
 
+#ERNESTO
+# 1
+# write the method code, with the interface the MI will call
+# put into the signature all the parameters the method needs
+# always return a python dictionary
+def yourSampleMethod(workflowId, sample_parameter, ticket):
+    """
+        This is a sample xmlrpc method
+    """
+
+    ret = {}
+
+    # hint, howto retrieve the user from the ticket
+    # will return a dictionary like user = {'username':'testuser', 'email':'email', ...}
+    user = extractUserFromTicket(ticket)
+
+    # if needed validate inputs and then invoke the TavernaConnector method
+
+    # hint, howto check if a workflow with the given id exists
+    wf = Workflow.query.filter_by(workflowId=workflowId).first()
+
+    if wf is not None:
+        ret = tavernaServer.mySampleMethod(workflowId, sample_parameter)
+        # to continue with the tutorial
+        # look for #ERNESTO in taverna.py module
+
+    else:
+        ret["returnValue"] = "ko"
+        ret["error.description"] = "The requested workflow does not exist"
+        ret["error.code"] = "404"
+
+    return ret
+
 ############################################################################
 # register xmlrpc callback
 xmlrpc.register(hello, "hello")
@@ -483,6 +516,16 @@ xmlrpc.register(getWorkflowInformation, "getWorkflowInformation")
 xmlrpc.register(getWorkflowsList, "getWorkflowsList")
 xmlrpc.register(deleteWorkflow, "deleteWorkflow")
 xmlrpc.register(updateAllWorkflows, "updateAllWorkflows")
+
+#ERNESTO
+# 3
+# register the callback in the xmlrpc connector
+# the first parameter is the function to be called
+# the second parameter is the url of the method
+# in this example, the client to invoke the 'yourSampleMethod' function
+# will send a request to the url http://localhost:5000/api/myNewMethod
+xmlrpc.register(yourSampleMethod, "myNewMethod")
+
 ############################################################################
 
 if __name__ == "__main__":

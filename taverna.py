@@ -42,7 +42,7 @@ class TavernaServerConnector():
         else:
             self.tunneling = False
             self.server_url = url
-        self.service_url = "/taverna-server-24/rest/runs"
+        self.service_url = "/taverna-server/rest/runs"
 
     def createWorkflow(self, workflowDefinition):
         """ Create a new workflow according to the given definition string.
@@ -288,7 +288,7 @@ class TavernaServerConnector():
 
         headers = {"Content-type": "text/plain"}
         self.connection.request('PUT',
-                                "%s/%s/status" % (self.service_url, workflowId ),
+                                "%s/%s/status" % (self.service_url, workflowId),
                                 "Operating",
                                 headers)
         result = self.connection.getresponse()
@@ -331,4 +331,55 @@ class TavernaServerConnector():
 
         return info
 
+    #ERNESTO
+    # 2
+    # write the code to contact the taverna server in this class method
+    def mySampleMethod(self, workflowId, sample_parameter):
+        """
+         This method makes a sample operation
+        """
 
+        # create the return map (we are happy map users :)
+        ret = {}
+
+        # open the connection to the taverna server
+        self.connection = httplib.HTTPConnection(self.server_url)
+
+        # specify headers
+        headers = {"Content-type": "application/xml"}
+
+        # hint, howto base64 encode a string
+        b64_encoded_sample_parameter = base64.b64encode(sample_parameter)
+
+        # send the request
+        self.connection.request('POST',  # request method
+                                "%s/%s/wd/plugins" % (self.service_url, workflowId),  # request url
+                                b64_encoded_sample_parameter,  # request message
+                                headers)  # request headers
+
+        # get the response object from the server
+        response = self.connection.getresponse()
+
+        # hint, check the reponse status
+        if response.status != 200:
+            print "I'm not happy!"
+
+            # always add the error details into the return map so the caller can understand what happened
+            ret['returnValue'] = 'ko'
+            ret["error.description"] = "Error executing my sample method!"
+            ret["error.code"] = "%s %s" % (response.status, response.reason)
+
+        else:
+            print "I'm happy!"
+
+            # hint, howto read the response body
+            print response.read()
+
+            # we just need to know everything is fine, nothing more
+            ret['returnValue'] = 'ok'
+
+        # always close the connection to the taverna server
+        self.connection.close()
+
+        # return to the workflow manager
+        return ret
