@@ -30,7 +30,7 @@ class TavernaServerConnector():
 
     """
 
-    def __init__(self, tunneling, url, localPort=8080, remoteHost='', remotePort=8080, username='', password=''):
+    def __init__(self, tunneling, url, localPort=8080, remoteHost='', remotePort=8080, username='', password='', maxAttempts = 10):
         """ initialize the connector with the given taverna server url
         """
 
@@ -44,6 +44,7 @@ class TavernaServerConnector():
             self.server_url = url
         self.service_url = "/taverna-server/rest/runs"
         self.userAndPass = base64.b64encode(username + ":" + password)
+        self.CREATE_WORKFLOW_MAX_NUMBER_OF_ATTEMPTS = maxAttempts
 
     def createWorkflow(self, workflowDefinition):
         """ Create a new workflow according to the given definition string.
@@ -68,34 +69,43 @@ class TavernaServerConnector():
         # if not wf.count("""<workflow xmlns="http://ns.taverna.org.uk/2010/xml/server/">"""):
         #    wf = """<workflow xmlns="http://ns.taverna.org.uk/2010/xml/server/"> %s </workflow>""" % wf
 
-        # post workflow definition file 
-        headers = {"Content-type": "application/vnd.taverna.t2flow+xml" , 'Authorization' : 'Basic %s' %  self.userAndPass }
-        self.connection.request("POST", self.service_url, wf, headers)
+        workflowCreatedSucessfully = False
+        counter = 0
+        while (not workflowCreatedSucessfully) and counter < self.CREATE_WORKFLOW_MAX_NUMBER_OF_ATTEMPTS:
 
-        try:
-            # get and handle response
-            response = self.connection.getresponse()
-            o = response.read()
+            try:
 
-            if response.status == 201:
+                # post workflow definition file 
+                headers = {"Content-type": "application/vnd.taverna.t2flow+xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
+                self.connection.request("POST", self.service_url, wf, headers)
+                counter = counter + 1
 
-                # workflow has been correctly created              
-                ret["workflowId"] = response.msg["Location"].split("/")[-1]
+                # get and handle response
+                response = self.connection.getresponse()
+                o = response.read()
 
-                # get brand new created workflow information            
-                info = self.getWorkflowInformation(ret["workflowId"])
+                if response.status == 201:
 
-                ret.update(info)
+                    workflowCreatedSucessfully = True
+                    # workflow has been correctly created              
+                    ret["workflowId"] = response.msg["Location"].split("/")[-1]
 
-            else:
+                    # get brand new created workflow information            
+                    info = self.getWorkflowInformation(ret["workflowId"])
+
+                    ret.update(info)
+
+                else:
+                    ret["workflowId"] = ""
+                    ret["error.description"] = "Error Creating Workflow: " + o
+                    if counter == self.CREATE_WORKFLOW_MAX_NUMBER_OF_ATTEMPTS:
+                        ret["error.description"] = ret["error.description"] + ". Maximum number of attempts reached !" 
+                    ret["error.code"] = "%s %s" % ( response.status, response.reason)
+
+            except Exception as e:
                 ret["workflowId"] = ""
-                ret["error.description"] = "Error Creating Workflow!"
-                ret["error.code"] = "%s %s" % ( response.status, response.reason)
-
-        except Exception as e:
-            ret["workflowId"] = ""
-            ret["error.description"] = "Error Creating Workflow! %s" % str(e)
-            ret["error.code"] = ""
+                ret["error.description"] = "Error Creating Workflow! %s" % str(e)
+                ret["error.code"] = ""
 
         self.connection.close()
 
@@ -107,7 +117,7 @@ class TavernaServerConnector():
         Arguments:
             url (string): the base URL of the Taverna Server
 
-        """	
+        """ 
         self.server_url = url
 
     def setServicePath(self, path):
@@ -116,7 +126,7 @@ class TavernaServerConnector():
         Arguments:
             url (string): the path to the Taverna Server, with respect to the base URL
 
-        """	
+        """ 
         self.service_url = path
         
     def setPlugins(self, workflowId, pluginDefinition):
@@ -146,7 +156,7 @@ class TavernaServerConnector():
             ret["workflowId"] = workflowId
 
             # POST plugin.xml file
-            headers = {"Content-type": "application/xml", 'Authorization' : 'Basic %s' %  self.userAndPass}
+            headers = {"Content-type": "application/xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
             self.connection.request('POST',
                 "%s/%s/wd/plugins" % (self.service_url, workflowId),
                  plugins,
@@ -197,7 +207,7 @@ class TavernaServerConnector():
             ret["workflowId"] = workflowId
 
             # POST properties file
-            headers = {"Content-type": "application/xml", 'Authorization' : 'Basic %s' %  self.userAndPass}
+            headers = {"Content-type": "application/xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
             self.connection.request('POST',
                 "%s/%s/wd/conf" % (self.service_url, workflowId),
                  properties,
@@ -248,7 +258,7 @@ class TavernaServerConnector():
             ret["workflowId"] = workflowId
 
             # POST credentials
-            headers = {"Content-type": "application/xml", 'Authorization' : 'Basic %s' %  self.userAndPass}
+            headers = {"Content-type": "application/xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
             self.connection.request('POST',
                  "%s/%s/wd/conf" % (self.service_url, workflowId),
                  credential,
@@ -301,7 +311,7 @@ class TavernaServerConnector():
             ret["workflowId"] = workflowId
 
             # POST identity file
-            headers = {"Content-type": "application/xml", 'Authorization' : 'Basic %s' %  self.userAndPass}
+            headers = {"Content-type": "application/xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
             self.connection.request('POST',
                 "%s/%s/security/trusts" % (self.service_url, workflowId),
                  identity,
@@ -349,7 +359,7 @@ class TavernaServerConnector():
 
         baclava = """<t2sr:upload xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/rest/" t2sr:name="baclava.xml">%s</t2sr:upload>""" % base64.b64encode(inputDefinition)
 
-        headers = {"Content-type": "application/xml", 'Authorization' : 'Basic %s' %  self.userAndPass}
+        headers = {"Content-type": "application/xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         self.connection.request('POST',
                                 "%s/%s/wd" % (self.service_url, workflowId),
                                 baclava,
@@ -362,7 +372,7 @@ class TavernaServerConnector():
             ret["workflowId"] = workflowId
 
             # PUT baclava
-            headers = {"Content-type": "text/plain", 'Authorization' : 'Basic %s' %  self.userAndPass}
+            headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
             self.connection.request('PUT',
                                     "%s/%s/input/baclava" % (self.service_url, workflowId ),
                                     "baclava.xml",
@@ -413,7 +423,7 @@ class TavernaServerConnector():
 
         self.connection = httplib.HTTPSConnection(self.server_url)
 
-        headers = {"Content-type": "text/plain", 'Authorization' : 'Basic %s' %  self.userAndPass}
+        headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         self.connection.request("GET", "%s/%s/workflow" % (self.service_url, workflowId), "", headers)
         response = self.connection.getresponse()
         ret = response.read()
@@ -484,7 +494,7 @@ class TavernaServerConnector():
 
         self.connection = httplib.HTTPSConnection(self.server_url)
 
-        headers = {"Content-type": "text/plain", 'Authorization' : 'Basic %s' %  self.userAndPass}
+        headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         self.connection.request("GET", "%s/%s/%s" % (self.service_url, workflowId, info), "", headers)
         response = self.connection.getresponse()
         ret = response.read()
@@ -509,7 +519,7 @@ class TavernaServerConnector():
 
         self.connection = httplib.HTTPSConnection(self.server_url)
 
-        headers = {"Content-type": "text/plain", 'Authorization' : 'Basic %s' %  self.userAndPass}
+        headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         self.connection.request('PUT',
                                 "%s/%s/status" % (self.service_url, workflowId ),
                                 "Operating",
@@ -540,7 +550,7 @@ class TavernaServerConnector():
         # send delete commmand
         self.connection = httplib.HTTPSConnection(self.server_url)
 
-        headers = {"Content-type": "text/plain", 'Authorization' : 'Basic %s' %  self.userAndPass}
+        headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         self.connection.request('DELETE',
                                 "%s/%s" % (self.service_url, workflowId),
                                 "",

@@ -4,6 +4,7 @@
     It maps workflows and users, manages sessions, serializes workflows and logs.
     Is the frontend for all other hypermodel application. """
 
+import sys
 import os
 import smtplib
 
@@ -35,7 +36,9 @@ from taverna import TavernaServerConnector
 import xml.etree.ElementTree as ET
 import string
 import base64
-from cyfronet import easywebdav
+from cfinterface import CloudFacadeInterface
+import time
+from masterinterface.cyfronet.easywebdav import client as easywebdav
 
 ############################################################################
 # create and configure main application
@@ -63,7 +66,8 @@ tavernaServer = TavernaServerConnector(
     app.config["TAVERNA_SSH_REMOTE_HOST"],
     app.config["TAVERNA_SSH_REMOTE_PORT"],
     app.config["TAVERNA_SSH_USERNAME"],
-    app.config["TAVERNA_SSH_PASSWORD"])
+    app.config["TAVERNA_SSH_PASSWORD"],
+    app.config["TAVERNA_CREATE_WORKFLOW_MAX_NUMBER_OF_ATTEMPTS"])
 
 
 ############################################################################
@@ -186,7 +190,16 @@ class SessionCache(db.Model):
         return '<UserCache %r-%r>' % (self.username, self.tkt)
 
 class TavernaServer(db.Model):
-    
+    """ This class represents a Taverna Server workflow (i.e. a workflow containing an AS running a Taverna Server) in the database
+        
+        Fields:
+            **username** (string): the user identifier (primary key)
+            **url** (string): url for the web endpoint of the server
+            **workflowId** (string): id of the workflow containing the Taverna Server
+            **asConfigId** (string): configuration id of the atomic service running the server
+            **count** (integer): number of workflows running in the server at a given time
+
+    """
     username = db.Column(db.String(80), primary_key=True)
     url = db.Column(db.String(80), primary_key=True)
     workflowId = db.Column(db.String(80), primary_key=True)
@@ -199,6 +212,16 @@ class TavernaServer(db.Model):
         self.workflowId = workflowId
         self.asConfigId = asConfigId
         self.count = 0
+        
+    def toDictionary(self):
+        """ return a dictionary with object properties"""
+        
+        return {'username': self.username,
+                'url': self.url,
+                'workflowId': self.workflowId,
+                'asConfigId': self.asConfigId,
+                'count': self.count
+        }
 
 ############################################################################
 # html methods
@@ -231,6 +254,7 @@ def alert_user_by_email(mail_from, mail_to, subject, mail_template, dictionary={
     except BaseException, e:
         pass
 
+
 def createOutputFolders(workflowId, inputDefinition, user, ticket):
     """
         Parses a baclava input definition file, create an output folder for the workflow with id workflowId,
@@ -244,16 +268,16 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
 
             user (string): current user name
 
-            ticket (string): a valid authentication ticket		
+            ticket (string): a valid authentication ticket      
     """
-    LOBCDER_ROOT_IN_WEBDAV = '/lobcder/dav/'
-    LOBCDER_ROOT_IN_FILESYSTEM = '/media/lobcder/'
+    LOBCDER_ROOT_IN_WEBDAV = app.config["LOBCDER_ROOT_IN_WEBDAV"]
+    LOBCDER_ROOT_IN_FILESYSTEM = app.config["LOBCDER_ROOT_IN_FILESYSTEM"]
     namespaces = {'b': 'http://org.embl.ebi.escience/baclava/0.1alpha'}
     ret = {'workflowId': workflowId}
     ret['inputDefinition'] = ""
     try:
         # open LOBCDER connection
-        webdav = easywebdav.connect( "149.156.10.138", 8080, username = user, password = ticket )
+        webdav = easywebdav.connect( app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username = user, password = ticket )
         workflowFolder = LOBCDER_ROOT_IN_FILESYSTEM + workflowId + '/'
         if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
             webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId)
@@ -312,13 +336,99 @@ def updateAllWorkflows():
 
     return len(wfs)
 
-def setTavernaServerURL(url):
-    tavernaServer.setServerURL(url)
+def deleteTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket):
+    """
+        Reduces the amount of workflows running in the taverna server instantiated in the workflow with the specified id.
+        If there are no more workflows running in the server, the workflow is deleted from the cloudfacade  
+        
+        Arguments:
+            tavernaServerWorkflowId (string): the Taverna Server workflow id
 
-def setTavernaServerServicePath(path):
-    tavernaServer.setServicePath(path)
+            user (string): current user name
 
-def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, pluginDefinition, certificateFileName, pluginPropertiesFileName, ticket):
+            ticket (string): a valid authentication ticket   
+
+        Returns:
+
+            dictionary::
+
+                Success -- {'workflowId': workflowId}
+                Failure -- { }
+    """
+    ret = {}
+    ret["workflowId"] = ""
+    server = TavernaServer.query.filter_by(username=user).first()
+    server.count = server.count - 1
+    db.session.commit()
+    serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
+    if server.count==0: # if there are no more workflows running, delete the server
+        ret = serverManager.deleteWorkflow( tavernaServerWorkflowId, ticket)
+        db.session.delete(server)
+        db.session.commit()
+    return ret
+
+
+def getTavernaServersList(ticket):
+    ret = {'returnValue': 'ok', 'command': 'getTavernaServersList', 'servers': []}
+    user = extractUserFromTicket(ticket)
+    user_servers = TavernaServer.query.filter_by(username=user['username'])
+    for s in user_servers:
+        ret['servers'].append(s.toDictionary())
+
+    return ret
+
+
+def createTavernaServerWorkflow(tavernaServerASid, user, ticket):
+    """
+        Checks if the user is already using a taverna server workflow. If it is not, a new taverna server workflow is created.
+        If there are no more workflows running in the server, the workflow is deleted from the cloudfacade  
+        
+        Arguments:
+            tavernaServerWorkflowId (string): the Taverna Server workflow id
+
+            user (string): current user name
+
+            ticket (string): a valid authentication ticket      
+
+        Returns:
+
+            dictionary::
+
+                Success -- {'workflowId':workflowId, 'serverURL':serverURL}
+                Failure -- { }
+     """
+    ret= {}
+    server = TavernaServer.query.filter_by(username=user).first()
+    if server is None:
+        serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
+        ret_workflow = serverManager.createWorkflow(ticket)
+        workflowId = ret_workflow["workflowId"]
+        ret_ascid = serverManager.getAtomicServiceConfigId(tavernaServerASid, ticket)
+        atomicServiceConfigId = ret_ascid["asConfigId"]  
+        if workflowId and atomicServiceConfigId:
+            serverManager.startAtomicService(atomicServiceConfigId, workflowId, ticket)
+            ret_web = serverManager.getASwebEndpoint(atomicServiceConfigId, workflowId, ticket)
+            serverURL = ret_web["endpoint"]
+            if serverURL:
+                server = TavernaServer(user, serverURL, workflowId, atomicServiceConfigId)
+                db.session.add(server)
+                db.session.commit()
+                serverURL = serverURL[(serverURL.find("//")+2):]  # remove http:// or https://
+                path = serverURL[(serverURL.find("/")+1):]        # split path 
+                serverURL = serverURL[:serverURL.find("/")]       # split server base URL
+                tavernaServer.setServerURL(serverURL)
+                tavernaServer.setServicePath("/"+path+"/taverna-server/rest/runs")
+                while serverManager.isWebEndpointReady(ret_web["endpoint"], ticket)!=True:  # wait a bit until the server is ready.
+                    time.sleep(5)
+                ret["workflowId"] = workflowId
+                ret["serverURL"] =  ret_web["endpoint"] +"/taverna-server/"
+    else:
+        ret["workflowId"] = server.workflowId
+        ret["serverURL"] =  server.url +"/taverna-server/"
+
+    return ret
+
+def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, pluginDefinition, certificateFileName, pluginPropertiesFileName, ticket, tavernaServerUrl=''):
     """ sumbit the workflow and its input definition to the taverna server
 
         Arguments:
@@ -332,7 +442,9 @@ def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, pluginDef
 
             certificateFileName (string): filename of the certificate of the cloud provider 
 
-            pluginPropertiesFileName (string): filename of the plugin properties file 
+            pluginPropertiesFileName (string): filename of the plugin properties file
+
+            tavernaServerUrl (string): the taverna server url to submit the workflow
 
             ticket (string): a valid authentication ticket
 
@@ -350,6 +462,18 @@ def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, pluginDef
         response = app.make_response('Forbidden')
         response.status_code = 403
         return response
+
+    if not tavernaServerUrl:
+        server = TavernaServer.query.filter_by(username=user['username']).first()
+        if server is not None:
+            tavernaServer.setServerURL(server.url)
+            serverURL = server.url
+            serverURL = serverURL[(serverURL.find("//")+2):]  # remove http:// or https://
+            path = serverURL[(serverURL.find("/")+1):]        # split path
+            serverURL = serverURL[:serverURL.find("/")]       # split server base URL
+            tavernaServer.setServerURL(serverURL)
+            tavernaServer.setServicePath("/"+path+"/taverna-server/rest/runs")
+
 
     # create worfklow object 
     ret = tavernaServer.createWorkflow(workflowDefinition)
@@ -419,6 +543,13 @@ def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, pluginDef
         wf = Workflow(user['username'], ret['workflowId'], workflowTitle, ret['status'], ret['createTime'], expiry=ret['expiry'])
         db.session.add(wf)
 
+        # write changes to database
+        db.session.commit()
+        
+        # increase number of workflows running in this server
+        server = TavernaServer.query.filter_by(username=user['username']).first()
+        server.count = server.count + 1 
+       
         # write changes to database
         db.session.commit()
 
@@ -623,8 +754,9 @@ xmlrpc.register(getWorkflowInformation, "getWorkflowInformation")
 xmlrpc.register(getWorkflowsList, "getWorkflowsList")
 xmlrpc.register(deleteWorkflow, "deleteWorkflow")
 xmlrpc.register(updateAllWorkflows, "updateAllWorkflows")
-xmlrpc.register(setTavernaServerURL, "setTavernaServerURL")
-xmlrpc.register(setTavernaServerServicePath, "setTavernaServerServicePath")
+xmlrpc.register(createTavernaServerWorkflow, "createTavernaServerWorkflow")
+xmlrpc.register(deleteTavernaServerWorkflow, "deleteTavernaServerWorkflow")
+xmlrpc.register(getTavernaServersList, "getTavernaServersList")
 ############################################################################
 
 if __name__ == "__main__":
