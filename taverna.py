@@ -7,7 +7,7 @@ import base64
 import thread
 
 import forward
-
+import auth
 
 class TavernaServerConnector():
     """ The TavernaServerConnector allows the Workflow Manager to contact the Taverna Server application, directly
@@ -30,7 +30,7 @@ class TavernaServerConnector():
 
     """
 
-    def __init__(self, tunneling, url, localPort=8080, remoteHost='', remotePort=8080, username='', password=''):
+    def __init__(self, tunneling, url, localPort=8080, remoteHost='', remotePort=8080, username='', password='', maxAttempts = 10):
         """ initialize the connector with the given taverna server url
         """
 
@@ -43,6 +43,8 @@ class TavernaServerConnector():
             self.tunneling = False
             self.server_url = url
         self.service_url = "/taverna-server/rest/runs"
+        self.userAndPass = base64.b64encode(username + ":" + password)
+        self.CREATE_WORKFLOW_MAX_NUMBER_OF_ATTEMPTS = maxAttempts
 
     def createWorkflow(self, workflowDefinition):
         """ Create a new workflow according to the given definition string.
@@ -58,7 +60,7 @@ class TavernaServerConnector():
 
         """
 
-        self.connection = httplib.HTTPConnection(self.server_url)
+        self.connection = httplib.HTTPSConnection(self.server_url)
 
         ret = {}
 
@@ -67,34 +69,268 @@ class TavernaServerConnector():
         # if not wf.count("""<workflow xmlns="http://ns.taverna.org.uk/2010/xml/server/">"""):
         #    wf = """<workflow xmlns="http://ns.taverna.org.uk/2010/xml/server/"> %s </workflow>""" % wf
 
-        # post workflow definition file 
-        headers = {"Content-type": "application/vnd.taverna.t2flow+xml"}
-        self.connection.request("POST", self.service_url, wf, headers)
+        workflowCreatedSucessfully = False
+        counter = 0
+        while (not workflowCreatedSucessfully) and counter < self.CREATE_WORKFLOW_MAX_NUMBER_OF_ATTEMPTS:
+
+            try:
+
+                # increase attempt counter
+                counter = counter + 1
+
+                # post workflow definition file 
+                headers = {"Content-type": "application/vnd.taverna.t2flow+xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
+                self.connection.request("POST", self.service_url, wf, headers)
+
+                # get and handle response
+                response = self.connection.getresponse()
+                o = response.read()
+
+                if response.status == 201:
+
+                    workflowCreatedSucessfully = True
+                    # workflow has been correctly created              
+                    ret["workflowId"] = response.msg["Location"].split("/")[-1]
+
+                    # get brand new created workflow information            
+                    info = self.getWorkflowInformation(ret["workflowId"])
+
+                    ret.update(info)
+
+                else:
+                    ret["workflowId"] = ""
+                    ret["error.description"] = "Error Creating Workflow: " + o
+                    if counter == self.CREATE_WORKFLOW_MAX_NUMBER_OF_ATTEMPTS:
+                        ret["error.description"] = ret["error.description"] + ". Maximum number of attempts reached !" 
+                    ret["error.code"] = "%s %s" % ( response.status, response.reason)
+
+            except Exception as e:
+                ret["workflowId"] = ""
+                ret["error.description"] = "Error Creating Workflow! %s" % str(e)
+                ret["error.code"] = ""
+
+            # close previous connection
+            self.connection.close()
+
+        return ret
+        
+    def setServerURL(self, url):
+        """ Sets the base URL of the Taverna Server
+
+        Arguments:
+            url (string): the base URL of the Taverna Server
+
+        """ 
+        self.server_url = url
+
+    def setServicePath(self, path):
+        """ Sets the path to the Taverna Server, with respect to the base URL
+
+        Arguments:
+            url (string): the path to the Taverna Server, with respect to the base URL
+
+        """ 
+        self.service_url = path
+        
+    def setPlugins(self, workflowId, pluginDefinition):
+        """ Takes the contents of a plugin.xml file, and then creates this file in the server
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+            pluginDefinition (string): the plugin definition file string buffer
+
+        Returns:
+            dictionary::
+
+                Success -- {'workflowId':'a string value'}
+                Failure -- {'workflowId':'', 'error.description':'', error.code:''}
+
+        """
+        
+        self.connection = httplib.HTTPSConnection(self.server_url)
+        
+        ret = {}
+        
+        plugins = """<t2sr:upload t2sr:name="plugins.xml" xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/rest/">%s</t2sr:upload>""" % base64.b64encode(pluginDefinition)
 
         try:
-            # get and handle response
+
+            ret["workflowId"] = workflowId
+
+            # POST plugin.xml file
+            headers = {"Content-type": "application/xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
+            self.connection.request('POST',
+                "%s/%s/wd/plugins" % (self.service_url, workflowId),
+                 plugins,
+                 headers)
             response = self.connection.getresponse()
             o = response.read()
 
-            if response.status == 201:
-
-                # workflow has been correctly created              
-                ret["workflowId"] = response.msg["Location"].split("/")[-1]
-
-                # get brand new created workflow information            
-                info = self.getWorkflowInformation(ret["workflowId"])
-
-                ret.update(info)
-
-            else:
+            if response.status != 201:
                 ret["workflowId"] = ""
-                ret["error.description"] = "Error Creating Workflow!"
-                ret["error.code"] = "%s %s" % ( response.status, response.reason)
+                ret["error.description"] = "Error Creating Plugin File!"
+                ret["error.code"] = "%s %s" % (response.status, response.reason)
 
         except Exception as e:
             ret["workflowId"] = ""
-            ret["error.description"] = "Error Creating Workflow! %s" % str(e)
-            ret["error.code"] = ""
+            ret["error.description"] = "Error Creating Plugin File!"
+            ret["error.code"] = "500 Internal Server Error"
+
+        self.connection.close()
+
+        return ret
+
+    def setPluginProperties(self, workflowId, propertiesFileName, propertiesDefinition):
+        """ Creates a properties file with the specified filename and content, and uploads the file to the server
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+            propertiesFileName (string): the name of the properties file to be created
+
+            propertiesDefinition (string): the content of the properties file
+
+        Returns:
+            dictionary::
+
+                Success -- {'workflowId':'a string value'}
+                Failure -- {'workflowId':'', 'error.description':'', error.code:''}
+
+        """
+        
+        self.connection = httplib.HTTPSConnection(self.server_url)
+        
+        ret = {}
+        
+        properties = """<t2sr:upload t2sr:name="%s" xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/rest/">%s</t2sr:upload>""" % (propertiesFileName,base64.b64encode(propertiesDefinition))
+
+        try:
+
+            ret["workflowId"] = workflowId
+
+            # POST properties file
+            headers = {"Content-type": "application/xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
+            self.connection.request('POST',
+                "%s/%s/wd/conf" % (self.service_url, workflowId),
+                 properties,
+                 headers)
+            response = self.connection.getresponse()
+            o = response.read()
+
+            if response.status != 201:
+                ret["workflowId"] = ""
+                ret["error.description"] = "Error Creating Properties File!"
+                ret["error.code"] = "%s %s" % (response.status, response.reason)
+
+        except Exception as e:
+            ret["workflowId"] = ""
+            ret["error.description"] = "Error Creating Properties File!"
+            ret["error.code"] = "500 Internal Server Error"
+
+        self.connection.close()
+
+        return ret
+
+    def setTicket(self, workflowId, ticket):
+        """ Stores the specified ticket in the working directory of the workflow with the specified id
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+            ticket (string): a valid authentication ticket
+
+        Returns:
+            dictionary::
+
+                Success -- {'workflowId':'a string value'}
+                Failure -- {'workflowId':'', 'error.description':'', error.code:''}
+
+        """
+
+        self.connection = httplib.HTTPSConnection(self.server_url)
+
+        ret = {}
+
+        credential = """<t2sr:upload t2sr:name="ticket" xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/rest/">"""
+        credential = credential + base64.b64encode(ticket)
+        credential = credential + """</t2sr:upload>"""
+
+        try:
+
+            ret["workflowId"] = workflowId
+
+            # POST credentials
+            headers = {"Content-type": "application/xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
+            self.connection.request('POST',
+                 "%s/%s/wd/conf" % (self.service_url, workflowId),
+                 credential,
+                 headers)
+            response = self.connection.getresponse()
+            o = response.read()
+
+            if response.status != 201:
+                ret["workflowId"] = ""
+                ret["error.description"] = "Error setting authentication ticket in workflow working directory!"
+                ret["error.code"] = "%s %s" % (response.status, response.reason)
+
+        except Exception as e:
+            ret["workflowId"] = ""
+            ret["error.description"] = "Error setting authentication ticket in workflow working directory!"
+            ret["error.code"] = "500 Internal Server Error"
+
+        self.connection.close()
+
+        return ret
+
+    def setTrustedIdentity(self, workflowId, identityFileName, identityDefinition):
+        """ Takes the name of the certificate file, reads the contents of the file and submits the file contents to the server
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+            identityFileName (string): name of the certificate file
+
+            identityDefinition (string): contents of the certificate file
+
+        Returns:
+            dictionary::
+
+                Success -- {'workflowId':'a string value'}
+                Failure -- {'workflowId':'', 'error.description':'', error.code:''}
+
+        """
+
+        self.connection = httplib.HTTPSConnection(self.server_url)
+
+        ret = {}
+
+        identity = """<t2sr:trustedIdentity xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/" xmlns:t2s="http://ns.taverna.org.uk/2010/xml/server/">"""
+        identity = identity + """<t2s:certificateFile>%s</t2s:certificateFile>""" % base64.b64encode(identityFileName)
+        identity = identity + """<t2s:certificateBytes>%s</t2s:certificateBytes></t2sr:trustedIdentity>""" % base64.b64encode(identityDefinition)
+
+        try:
+
+            ret["workflowId"] = workflowId
+
+            # POST identity file
+            headers = {"Content-type": "application/xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
+            self.connection.request('POST',
+                "%s/%s/security/trusts" % (self.service_url, workflowId),
+                 identity,
+                 headers)
+            response = self.connection.getresponse()
+            o = response.read()
+
+            if response.status != 201:
+                ret["workflowId"] = ""
+                ret["error.description"] = "Error Creating Trusted Identity!"
+                ret["error.code"] = "%s %s" % (response.status, response.reason)
+
+        except Exception as e:
+            ret["workflowId"] = ""
+            ret["error.description"] = "Error Creating Trusted Identity!"
+            ret["error.code"] = "500 Internal Server Error"
 
         self.connection.close()
 
@@ -122,11 +358,11 @@ class TavernaServerConnector():
 
         ret = {}
 
-        self.connection = httplib.HTTPConnection(self.server_url)
+        self.connection = httplib.HTTPSConnection(self.server_url)
 
         baclava = """<t2sr:upload xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/rest/" t2sr:name="baclava.xml">%s</t2sr:upload>""" % base64.b64encode(inputDefinition)
 
-        headers = {"Content-type": "application/xml"}
+        headers = {"Content-type": "application/xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         self.connection.request('POST',
                                 "%s/%s/wd" % (self.service_url, workflowId),
                                 baclava,
@@ -139,7 +375,7 @@ class TavernaServerConnector():
             ret["workflowId"] = workflowId
 
             # PUT baclava
-            headers = {"Content-type": "text/plain"}
+            headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
             self.connection.request('PUT',
                                     "%s/%s/input/baclava" % (self.service_url, workflowId ),
                                     "baclava.xml",
@@ -169,9 +405,9 @@ class TavernaServerConnector():
         :return:
         """
 
-        self.connection = httplib.HTTPConnection(self.server_url)
+        self.connection = httplib.HTTPSConnection(self.server_url)
 
-        headers = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'}
+        headers = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Authorization' : 'Basic %s' %  self.userAndPass}
         self.connection.request("GET", "%s/%s/wd/baclava.xml" % (self.service_url, workflowId), "", headers)
         response = self.connection.getresponse()
         ret = response.read()
@@ -188,9 +424,9 @@ class TavernaServerConnector():
         :return:
         """
 
-        self.connection = httplib.HTTPConnection(self.server_url)
+        self.connection = httplib.HTTPSConnection(self.server_url)
 
-        headers = {"Content-type": "text/plain"}
+        headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         self.connection.request("GET", "%s/%s/workflow" % (self.service_url, workflowId), "", headers)
         response = self.connection.getresponse()
         ret = response.read()
@@ -259,9 +495,9 @@ class TavernaServerConnector():
 
         """
 
-        self.connection = httplib.HTTPConnection(self.server_url)
+        self.connection = httplib.HTTPSConnection(self.server_url)
 
-        headers = {"Content-type": "text/plain"}
+        headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         self.connection.request("GET", "%s/%s/%s" % (self.service_url, workflowId, info), "", headers)
         response = self.connection.getresponse()
         ret = response.read()
@@ -284,11 +520,11 @@ class TavernaServerConnector():
 
         """
 
-        self.connection = httplib.HTTPConnection(self.server_url)
+        self.connection = httplib.HTTPSConnection(self.server_url)
 
-        headers = {"Content-type": "text/plain"}
+        headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         self.connection.request('PUT',
-                                "%s/%s/status" % (self.service_url, workflowId),
+                                "%s/%s/status" % (self.service_url, workflowId ),
                                 "Operating",
                                 headers)
         result = self.connection.getresponse()
@@ -315,9 +551,9 @@ class TavernaServerConnector():
         info = self.getWorkflowInformation(workflowId)
 
         # send delete commmand
-        self.connection = httplib.HTTPConnection(self.server_url)
+        self.connection = httplib.HTTPSConnection(self.server_url)
 
-        headers = {"Content-type": "text/plain"}
+        headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         self.connection.request('DELETE',
                                 "%s/%s" % (self.service_url, workflowId),
                                 "",
@@ -331,55 +567,4 @@ class TavernaServerConnector():
 
         return info
 
-    #ERNESTO
-    # 2
-    # write the code to contact the taverna server in this class method
-    def mySampleMethod(self, workflowId, sample_parameter):
-        """
-         This method makes a sample operation
-        """
 
-        # create the return map (we are happy map users :)
-        ret = {}
-
-        # open the connection to the taverna server
-        self.connection = httplib.HTTPConnection(self.server_url)
-
-        # specify headers
-        headers = {"Content-type": "application/xml"}
-
-        # hint, howto base64 encode a string
-        b64_encoded_sample_parameter = base64.b64encode(sample_parameter)
-
-        # send the request
-        self.connection.request('POST',  # request method
-                                "%s/%s/wd/plugins" % (self.service_url, workflowId),  # request url
-                                b64_encoded_sample_parameter,  # request message
-                                headers)  # request headers
-
-        # get the response object from the server
-        response = self.connection.getresponse()
-
-        # hint, check the reponse status
-        if response.status != 200:
-            print "I'm not happy!"
-
-            # always add the error details into the return map so the caller can understand what happened
-            ret['returnValue'] = 'ko'
-            ret["error.description"] = "Error executing my sample method!"
-            ret["error.code"] = "%s %s" % (response.status, response.reason)
-
-        else:
-            print "I'm happy!"
-
-            # hint, howto read the response body
-            print response.read()
-
-            # we just need to know everything is fine, nothing more
-            ret['returnValue'] = 'ok'
-
-        # always close the connection to the taverna server
-        self.connection.close()
-
-        # return to the workflow manager
-        return ret
