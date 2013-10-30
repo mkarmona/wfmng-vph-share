@@ -57,7 +57,9 @@ if ret:
         print "=== deleteWorkflow"
         ret = wfmng.deleteWorkflow(wf_id)
         print ret
-        print "=== deleteTavernaServerWorkflow"
-        ticket = getAuthTicket(user, passwd) # get a fresh ticket, just in case the TS has been running for a long time
-        ret = wfmng.deleteTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket)
-        print ret
+        
+
+    print "=== deleteTavernaServerWorkflow"
+    ticket = getAuthTicket(user, passwd) # get a fresh ticket, just in case the TS has been running for a long time
+    ret = wfmng.deleteTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket)
+    print ret
