@@ -50,7 +50,7 @@ def getAuthTicket(username, password):
 
     """
 
-    resp = urllib2.urlopen('%s/user_login?username=%s&password=%s' % (AUTH_SERVER_URL, username, password))
+    resp = urllib2.urlopen('%s/user_login?domain=VPHSHARE&username=%s&password=%s' % (AUTH_SERVER_URL, username, password))
     ticket = resp.read()
 
     if resp.code != 200:
