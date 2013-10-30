@@ -349,7 +349,7 @@ def deleteTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket):
     server.count = server.count - 1
     db.session.commit()
     serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
-    if server.count==0: # if there are no more workflows running, delete the server
+    if server.count<=0: # if there are no more workflows running, delete the server
         ret = serverManager.deleteWorkflow( tavernaServerWorkflowId, ticket)
         db.session.delete(server)
         db.session.commit()
