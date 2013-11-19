@@ -306,6 +306,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         dataElementData.text = base64.b64encode(dataElementData.text)
         ret['inputDefinition'] =  ET.tostring(baclavaContent)
     except Exception as e:
+        ret['workflowId'] = ""
         ret['inputDefinition'] = ""
         ret["error.description"] = "Error creating workflow output folders" 
         ret["error.code"] = type(e)
