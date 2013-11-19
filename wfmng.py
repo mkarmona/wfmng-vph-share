@@ -36,9 +36,9 @@ from taverna import TavernaServerConnector
 import xml.etree.ElementTree as ET
 import string
 import base64
+from cyfronet import easywebdav
 from cfinterface import CloudFacadeInterface
 import time
-from masterinterface.cyfronet.easywebdav import client as easywebdav
 
 ############################################################################
 # create and configure main application
@@ -254,7 +254,6 @@ def alert_user_by_email(mail_from, mail_to, subject, mail_template, dictionary={
     except BaseException, e:
         pass
 
-
 def createOutputFolders(workflowId, inputDefinition, user, ticket):
     """
         Parses a baclava input definition file, create an output folder for the workflow with id workflowId,
@@ -318,6 +317,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         dataElementData.text = base64.b64encode(dataElementData.text)
         ret['inputDefinition'] =  ET.tostring(baclavaContent)
     except Exception as e:
+        ret['workflowId'] = ""
         ret['inputDefinition'] = ""
         ret["error.description"] = "Error creating workflow output folders" 
         ret["error.code"] = type(e)
@@ -698,7 +698,7 @@ def deleteWorkflow(workflowId):
         ret["returnValue"] = "ok"
 
     else:
-        ret["returnValue"] = "ok"
+        ret["returnValue"] = "ok"        
         ret["error.description"] = "The requested workflow does not exist"
         ret["error.code"] = "404"
         # allow client to retrieve this request

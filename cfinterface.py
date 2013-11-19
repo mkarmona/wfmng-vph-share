@@ -211,7 +211,7 @@ class CloudFacadeInterface():
 
 
 
-    def isWebEndpointReady(self, url, ticket):
+    def isWebEndpointReady(self, url, username, password):
         """ Checks if the web endpoint at URL is reachable
 
         Arguments:
@@ -227,7 +227,7 @@ class CloudFacadeInterface():
         if url:
             con = requests.get( 
                 url,
-                auth=("", ticket),
+                auth=(username, password),
                 verify = False
                 )
             if con.status_code == 200:

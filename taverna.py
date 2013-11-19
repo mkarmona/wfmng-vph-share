@@ -7,7 +7,6 @@ import base64
 import thread
 
 import forward
-import auth
 
 class TavernaServerConnector():
     """ The TavernaServerConnector allows the Workflow Manager to contact the Taverna Server application, directly
@@ -30,7 +29,7 @@ class TavernaServerConnector():
 
     """
 
-    def __init__(self, tunneling, url, localPort=8080, remoteHost='', remotePort=8080, username='', password='', maxAttempts = 10):
+    def __init__(self, tunneling, url, localPort=8080, remoteHost='', remotePort=8080, username='', password=''):
         """ initialize the connector with the given taverna server url
         """
 
@@ -60,6 +59,7 @@ class TavernaServerConnector():
 
         """
 
+        self.connection = httplib.HTTPConnection(self.server_url)
         self.connection = httplib.HTTPSConnection(self.server_url)
 
         ret = {}
@@ -69,16 +69,21 @@ class TavernaServerConnector():
         # if not wf.count("""<workflow xmlns="http://ns.taverna.org.uk/2010/xml/server/">"""):
         #    wf = """<workflow xmlns="http://ns.taverna.org.uk/2010/xml/server/"> %s </workflow>""" % wf
 
+        # post workflow definition file 
+        headers = {"Content-type": "application/vnd.taverna.t2flow+xml"}
+        self.connection.request("POST", self.service_url, wf, headers)
         workflowCreatedSucessfully = False
         counter = 0
         while (not workflowCreatedSucessfully) and counter < self.CREATE_WORKFLOW_MAX_NUMBER_OF_ATTEMPTS:
 
             try:
 
+                # increase attempt counter
+                counter = counter + 1
+
                 # post workflow definition file 
                 headers = {"Content-type": "application/vnd.taverna.t2flow+xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
                 self.connection.request("POST", self.service_url, wf, headers)
-                counter = counter + 1
 
                 # get and handle response
                 response = self.connection.getresponse()
@@ -107,7 +112,8 @@ class TavernaServerConnector():
                 ret["error.description"] = "Error Creating Workflow! %s" % str(e)
                 ret["error.code"] = ""
 
-        self.connection.close()
+            # close previous connection
+            self.connection.close()
 
         return ret
         
