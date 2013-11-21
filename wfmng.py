@@ -267,8 +267,14 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
         # open LOBCDER connection
         webdav = easywebdav.connect( app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username = user, password = ticket )
         workflowFolder = LOBCDER_ROOT_IN_FILESYSTEM + workflowId + '/'
-        if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
-            webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId)
+        try:
+            if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
+                webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId)
+        except Exception as e:
+            # This is done to skip an erratic behaviour of the webdav, that is triggering an exception
+            # even after the directory is successfully created
+            if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
+               raise e
         # parse input definition
         baclavaContent = ET.fromstring(inputDefinition)
         for dataThing in baclavaContent:
@@ -356,7 +362,7 @@ def deleteTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket):
         db.session.commit()
     return ret
 
-def createTavernaServerWorkflow(tavernaServerASid, user, ticket):
+def createTavernaServerWorkflow(user, ticket):
     """
         Checks if the user is already using a taverna server workflow. If it is not, a new taverna server workflow is created.
         If there are no more workflows running in the server, the workflow is deleted from the cloudfacade  
@@ -378,6 +384,7 @@ def createTavernaServerWorkflow(tavernaServerASid, user, ticket):
     ret= {}
     server = TavernaServer.query.filter_by(username=user).first()
     if server is None:
+        tavernaServerASid = app.config["TAVERNA_SERVER_AS_ID"]
         serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
         ret_workflow = serverManager.createWorkflow(ticket)
         workflowId = ret_workflow["workflowId"]
