@@ -28,8 +28,7 @@ class TavernaServerConnector():
         password (string): the password to access to the remote system
 
     """
-
-    def __init__(self, tunneling, url, localPort=8080, remoteHost='', remotePort=8080, username='', password=''):
+    def __init__(self, tunneling, url, localPort=8080, remoteHost='', remotePort=8080, username='', password='', maxAttempts = 10):
         """ initialize the connector with the given taverna server url
         """
 
@@ -59,7 +58,6 @@ class TavernaServerConnector():
 
         """
 
-        self.connection = httplib.HTTPConnection(self.server_url)
         self.connection = httplib.HTTPSConnection(self.server_url)
 
         ret = {}

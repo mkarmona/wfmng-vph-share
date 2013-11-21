@@ -404,7 +404,7 @@ def createTavernaServerWorkflow(tavernaServerASid, user, ticket):
         ret_workflow = serverManager.createWorkflow(ticket)
         workflowId = ret_workflow["workflowId"]
         ret_ascid = serverManager.getAtomicServiceConfigId(tavernaServerASid, ticket)
-        atomicServiceConfigId = ret_ascid["asConfigId"]  
+        atomicServiceConfigId = ret_ascid["asConfigId"]
         if workflowId and atomicServiceConfigId:
             serverManager.startAtomicService(atomicServiceConfigId, workflowId, ticket)
             ret_web = serverManager.getASwebEndpoint(atomicServiceConfigId, workflowId, ticket)
@@ -414,11 +414,12 @@ def createTavernaServerWorkflow(tavernaServerASid, user, ticket):
                 db.session.add(server)
                 db.session.commit()
                 serverURL = serverURL[(serverURL.find("//")+2):]  # remove http:// or https://
-                path = serverURL[(serverURL.find("/")+1):]        # split path 
+                path = serverURL[(serverURL.find("/")+1):]        # split path
                 serverURL = serverURL[:serverURL.find("/")]       # split server base URL
                 tavernaServer.setServerURL(serverURL)
                 tavernaServer.setServicePath("/"+path+"/taverna-server/rest/runs")
-                while serverManager.isWebEndpointReady(ret_web["endpoint"], ticket)!=True:  # wait a bit until the server is ready.
+                # wait a bit until the server is ready.
+                while serverManager.isWebEndpointReady(ret_web["endpoint"]+"/taverna-server/rest/runs/", app.config["TAVERNA_SSH_USERNAME"], app.config["TAVERNA_SSH_PASSWORD"])!=True:
                     time.sleep(5)
                 ret["workflowId"] = workflowId
                 ret["serverURL"] =  ret_web["endpoint"] +"/taverna-server/"

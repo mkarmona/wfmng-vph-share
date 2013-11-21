@@ -6,9 +6,14 @@ from xmlrpclib import ServerProxy
 from auth import getAuthTicket
 
 wfmng = ServerProxy("http://localhost:5000/api")
-user = 'mbalasso'
-passwd = 'banzai'
-tavernaServerASid=  "51ded4da86648825040093fe"
+#user = 'testuser'
+#passwd = '6w8DHF'
+user = 'asagli'
+passwd = 'selvagg.86'
+
+tavernaServerASid = "51ded4da86648825040093fe" # (Taverna server secured - SUN JDK)
+#"526a78538664880543005f6b" # (Taverna server insecured - SUN JDK)
+#"51ded4da86648825040093fe" # (Taverna server secured - OpenJDK)
 ticket = getAuthTicket( user, passwd )
 
 #print "=== getWorkflowsList"
@@ -55,7 +60,8 @@ if ret:
         print "=== deleteWorkflow"
         ret = wfmng.deleteWorkflow(wf_id)
         print ret
-        print "=== deleteTavernaServerWorkflow"
-        ticket = getAuthTicket(user, passwd) # get a fresh ticket, just in case the TS has been running for a long time
-        ret = wfmng.deleteTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket)
-        print ret
+
+    print "=== deleteTavernaServerWorkflow"
+    ticket = getAuthTicket(user, passwd) # get a fresh ticket, just in case the TS has been running for a long time
+    ret = wfmng.deleteTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket)
+    print ret
