@@ -8,6 +8,10 @@ from auth import getAuthTicket
 wfmng = ServerProxy("http://localhost:5000/api")
 user = 'testuser'
 passwd = '6w8DHF'
+
+tavernaServerASid = "51ded4da86648825040093fe" # (Taverna server secured - SUN JDK)
+#"526a78538664880543005f6b" # (Taverna server insecured - SUN JDK)
+#"51ded4da86648825040093fe" # (Taverna server secured - OpenJDK)
 ticket = getAuthTicket( user, passwd )
 
 #print "=== getWorkflowsList"
@@ -32,7 +36,7 @@ if ret:
     plugin_properties_file = "vphshare.properties"
 
     # submit worflow
-    ret = wfmng.submitWorkflow(wf_title, wf_definition, input_definition, plugin_definition, certificate_file, plugin_properties_file, ticket)
+    ret = wfmng.submitWorkflow(wf_title, wf_definition, input_definition, ticket)
     print ret
 
     if 'workflowId' in ret and ret['workflowId']:

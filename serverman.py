@@ -1,20 +1,34 @@
 import requests
 import json
 
-class CloudFacadeInterface():
-    """ The CloudFacadeInterface allows the creation, managements and destruction of workflows in the cloudfacade """
-   
-    def __init__(self, cfURL):
-        """ Initializes the manager
+CLOUDFACACE_URL = "https://vph.cyfronet.pl/cloudfacade"
+
+class TavernaServerManager():
+    """ The TavernaServerManager allows the creation and destruction of a workflow with a Taverna Server AS running on it """
+
+    test = False
+
+    def __init__(self, atomicServiceId, workflowId = "", webendpoint="", atomicServiceConfigId="" ):
+        """ Initializes a new TS Manager
 
         Arguments:
-            cfURL (string): the url of the cloudfacade API
+            atomicServiceId (string): the cloudfacade id of the AS with the Taverna Server
 
-        """
-        self.CLOUDFACACE_URL = cfURL
+            workflowId (string): the workflow id of an already existing workflow with a Taverna Server, omit it if a new workflow will be created
 
-    def createWorkflow(self, ticket):
-        """ Creates a new workflow in the cloudfacade
+            webendpoint (string): the web endpoint of an already existing Taverna Server, omit it if a new Taverna Server will be created
+
+            atomicServiceConfigId (string): the configuration id of an already existing AS in a Taverna Server workflow, omit it if a new AS will be created
+
+        """	
+
+        self.workflowId = workflowId
+        self.atomicServiceConfigId = atomicServiceConfigId
+        self.atomicServiceId = atomicServiceId
+        self.webendpoint = webendpoint
+
+    def createTavernaServerWorkflow(self, ticket):
+        """ Creates a new workflow, which will contain a taverna server AS
 
         Arguments:
             ticket (string): a valid authentication ticket
@@ -30,7 +44,7 @@ class CloudFacadeInterface():
         try:
             body = json.dumps({'name': "tavernaserverworkflow", 'type':  "workflow"})
             con = requests.post(
-                "%s/workflows" % self.CLOUDFACACE_URL,
+                "%s/workflows" % CLOUDFACACE_URL,
                 auth=("", ticket),
                 data = body, 
                 verify = False
@@ -38,25 +52,24 @@ class CloudFacadeInterface():
 
             if con.status_code != 200:
                 ret["workflowId"] = ""
-                ret["error.description"] = "Error creating workflow"
+                ret["error.description"] = "Error creating Taverna Server workflow"
                 ret["error.code"] = con.status_code
 
             ret["workflowId"] = con.text
+            self.workflowId = con.text
 
         except Exception as e:
             ret["workflowId"] = ""
-            ret["error.description"] = "Error creating workflow"
+            ret["error.description"] = "Error creating Taverna Server workflow"
             ret["error.code"] = e
 
         return ret
 
 
-    def deleteWorkflow(self,  workflowId, ticket):
-        """ Deletes the workflow with id workflowId from the cloudfacade
+    def deleteTavernaServerWorkflow(self, ticket):
+        """ Deletes the workflow containing the taverna server AS
 
         Arguments:
-            workflowId (string): a valid id for a workflow in the cloudfacade
-
             ticket (string): a valid authentication ticket
 
         Returns:
@@ -68,32 +81,30 @@ class CloudFacadeInterface():
         """
         ret = {}
         try:
-            ret["workflowId"] = workflowId
+            ret["workflowId"] = self.workflowId
             con = requests.delete(
-                "%s/workflows/%s" % (self.CLOUDFACACE_URL, workflowId),
+                "%s/workflows/%s" % (CLOUDFACACE_URL, self.workflowId),
                 auth=("", ticket),
                 verify = False
             )
             if con.status_code != 200 and con.status_code != 204:
                 ret["workflowId"] = ""
-                ret["error.description"] = "Error deleting workflow " + workflowId
+                ret["error.description"] = "Error deleting workflow " + self.workflowId
                 ret["error.code"] = con.status_code
 
         except Exception as e:
             ret["workflowId"] = ""
-            ret["error.description"] = "Error deleting workflow " + workflowId
+            ret["error.description"] = "Error deleting workflow " + self.workflowId
             ret["error.code"] = e
 
         return ret
 
 
 
-    def getAtomicServiceConfigId(self, atomicServiceId, ticket):
-        """ Retrieves the service configuration Id of an AS
+    def getTavernaServerAtomicServiceConfigId(self, ticket):
+        """ Retrieves the service configuration Id of the  taverna server AS
 
         Arguments:
-            atomicServiceId (string): a valid id for an atomic service in the cloudfacade
-
             ticket (string): a valid authentication ticket
 
         Returns:
@@ -106,37 +117,34 @@ class CloudFacadeInterface():
         ret = {}
         try:
             con = requests.get(
-                "%s/atomic_services/%s/configurations" % (self.CLOUDFACACE_URL, atomicServiceId),
+                "%s/atomic_services/%s/configurations" % (CLOUDFACACE_URL, self.atomicServiceId),
                 auth=("", ticket),
                verify = False
             )
 
             if con.status_code != 200:
                 ret["asConfigId"] = ""
-                ret["error.description"] = "Error getting configuration Id for AS " + atomicServiceId
+                ret["error.description"] = "Error getting configuration Id for AS " + self.atomicServiceId
                 ret["error.code"] = con.status_code
 
             json = con.json()
             ret["asConfigId"] = json[0]["id"]
 
         except Exception as e:
+            print e
             ret["asConfigId"] = ""
-            ret["error.description"] = "Error getting configuration Id for AS " + atomicServiceId
+            ret["error.description"] = "Error getting configuration Id for AS " + self.atomicServiceId
             ret["error.code"] = e
 
         return ret
 
 
 
-    def startAtomicService(self, atomicServiceConfigId, workflowId, ticket):
-        """ Adds an atomic service to a workflow 
+    def startTavernaServer(self, ticket):
+        """ Adds the taverna server AS to the workflow
 
         Arguments:
-           workflowId (string): a valid id for a workflow in the cloudfacade
-
-           atomicServiceConfigId (string): a valid atomic service configuration id in the cloudfacade
-
-           ticket (string): a valid authentication ticket
+            ticket (string): a valid authentication ticket
 
         Returns:
             dictionary::
@@ -147,37 +155,35 @@ class CloudFacadeInterface():
         """
         ret = {}
         try:
-            ret["workflowId"] = workflowId
-            body = json.dumps( {'asConfigId':  atomicServiceConfigId} )
+            ret["workflowId"] = self.workflowId
+            ret_asi = self.getTavernaServerAtomicServiceConfigId(ticket)
+            self.atomicServiceConfigId = ret_asi["asConfigId"] 
+            body = json.dumps( {'asConfigId':  self.atomicServiceConfigId} )
             con = requests.post(
-                "%s/workflows/%s/atomic_services" % (self.CLOUDFACACE_URL, workflowId),
+                "%s/workflows/%s/atomic_services" % (CLOUDFACACE_URL, self.workflowId),
                 auth=("", ticket),
                 data = body, 
                 verify = False
             )
             if con.status_code != 200:
                 ret["workflowId"] = ""
-                ret["error.description"] = "Error starting Taverna Server in workflow " + workflowId
+                ret["error.description"] = "Error starting Taverna Server in workflow " + self.workflowId
                 ret["error.code"] = con.status_code
                 
         except Exception as e:
             ret["workflowId"] = ""
-            ret["error.description"] = "Error starting Taverna Server in workflow " + workflowId
+            ret["error.description"] = "Error starting Taverna Server in workflow " + self.workflowId
             ret["error.code"] = e
 
         return ret
 
 
 
-    def getASwebEndpoint(self, atomicServiceConfigId, workflowId, ticket):
-        """ Retrieves the web endpoint URL of an atomic service 
+    def getTavernaServerWebEndpoint(self, ticket):
+        """ Retrieves the web endpoint URL of the taverna server AS managed by this class
 
         Arguments:
-           workflowId (string): a valid id for a workflow in the cloudfacade
-
-           atomicServiceConfigId (string): a valid atomic service configuration id in the cloudfacade
-
-           ticket (string): a valid authentication ticket
+            ticket (string): a valid authentication ticket
 
         Returns:
             dictionary::
@@ -188,11 +194,11 @@ class CloudFacadeInterface():
         """
         ret = {}
         try:
-            ret["workflowId"] = workflowId
+            ret["workflowId"] = self.workflowId
             url = "null"
             while url.find("null")!=-1:
                 con = requests.get(
-                    "%s/workflows/%s/atomic_services/%s/redirections" % (self.CLOUDFACACE_URL, workflowId, atomicServiceConfigId ),
+                    "%s/workflows/%s/atomic_services/%s/redirections" % (CLOUDFACACE_URL, self.workflowId, self.atomicServiceConfigId ),
                     auth=("", ticket),
                     verify = False
                     )
@@ -201,22 +207,21 @@ class CloudFacadeInterface():
                     url = json["http"][0]["urls"][0]
 
             ret["endpoint"] = url
+            self.webendpoint = url
 
         except Exception as e:
             ret["endpoint"] = ""
-            ret["error.description"] = "Error getting Taverna Server endpoint in workflow " + workflowId
+            ret["error.description"] = "Error getting Taverna Server endpoint in workflow " + self.workflowId
             ret["error.code"] = e
 
         return ret
 
 
 
-    def isWebEndpointReady(self, url, username, password):
-        """ Checks if the web endpoint at URL is reachable
+    def isWebEndpointReady(self, ticket):
+        """ Checks if the taverna server is running in the endpoint URL
 
         Arguments:
-            url (string): a valid endpoint url 
-
             ticket (string): a valid authentication ticket
 
         Returns:
@@ -224,12 +229,12 @@ class CloudFacadeInterface():
             
 
         """
-        if url:
+        if self.webendpoint:
             con = requests.get( 
-                url,
-                auth=(username, password),
+                self.webendpoint,
+                auth=("", ticket),
                 verify = False
                 )
             if con.status_code == 200:
                 return True
-        return False
+        return False;

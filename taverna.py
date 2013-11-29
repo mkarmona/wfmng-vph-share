@@ -5,9 +5,8 @@
 import httplib
 import base64
 import thread
-
+import requests
 import forward
-import auth
 
 class TavernaServerConnector():
     """ The TavernaServerConnector allows the Workflow Manager to contact the Taverna Server application, directly
@@ -29,7 +28,6 @@ class TavernaServerConnector():
         password (string): the password to access to the remote system
 
     """
-
     def __init__(self, tunneling, url, localPort=8080, remoteHost='', remotePort=8080, username='', password='', maxAttempts = 10):
         """ initialize the connector with the given taverna server url
         """
@@ -78,7 +76,10 @@ class TavernaServerConnector():
                 # increase attempt counter
                 counter = counter + 1
 
-                # post workflow definition file 
+                # post workflow definition file
+                #Maybe is better to change all http call with requests library,it is easier to use and faster.
+                #response = requests.post('https://'+self.server_url+self.service_url, data=wf, headers={"content-type":"application/vnd.taverna.t2flow+xml", 'Authorization' : 'Basic %s' %  self.userAndPass},  verify=False)
+
                 headers = {"Content-type": "application/vnd.taverna.t2flow+xml" , 'Authorization' : 'Basic %s' %  self.userAndPass}
                 self.connection.request("POST", self.service_url, wf, headers)
 
@@ -451,7 +452,7 @@ class TavernaServerConnector():
 
         ret = {'workflowId': workflowId}
 
-        infos = ["status", "createTime", "expiry", "startTime", "finishTime", "owner"]
+        infos = ["status", "createTime", "expiry", "startTime", "finishTime"]
 
         for info in infos:
             try:
@@ -460,28 +461,18 @@ class TavernaServerConnector():
                 ret[info] = ""
                 ret["error.description"] = "Error Getting Workflow Information ( %s ) " % info
                 ret["error.code"] = type(e)
-                self.connection.close()
 
-        if ret["status"] == 'Finished':
-
-            additional_info = {'stderr': "listeners/io/properties/stderr",
+        additional_info = {'stderr': "listeners/io/properties/stderr",
                                'stdout': "listeners/io/properties/stdout",
                                'exitcode': "listeners/io/properties/exitcode"}
 
-            for info in additional_info.keys():
-
-                try:
-                    ret[info] = self.getWorkflowInfo(workflowId, additional_info[info])
-                except Exception as e:
-                    ret[info] = ""
-                    ret["error.description"] = "Error Getting Workflow Information ( %s ) " % info
-                    ret["error.code"] = type(e)
-                    self.connection.close()
-        else:
-            ret["stderr"] = ""
-            ret["stdout"] = ""
-            ret["exitcode"] = ""
-
+        for info in additional_info.keys():
+            try:
+                ret[info] = self.getWorkflowInfo(workflowId, additional_info[info])
+            except Exception as e:
+                ret[info] = ""
+                ret["error.description"] = "Error Getting Workflow Information ( %s ) " % info
+                ret["error.code"] = type(e)
         return ret
 
     def getWorkflowInfo(self, workflowId, info):
@@ -495,14 +486,9 @@ class TavernaServerConnector():
 
         """
 
-        self.connection = httplib.HTTPSConnection(self.server_url)
-
         headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
-        self.connection.request("GET", "%s/%s/%s" % (self.service_url, workflowId, info), "", headers)
-        response = self.connection.getresponse()
-        ret = response.read()
-
-        self.connection.close()
+        response = requests.get('https://%s/%s/%s'%(self.server_url+self.service_url,workflowId, info),  headers=headers,  verify=False)
+        ret = response.content
 
         return ret
 
