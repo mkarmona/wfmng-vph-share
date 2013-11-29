@@ -232,4 +232,4 @@ class CloudFacadeInterface():
                 )
             if con.status_code == 200:
                 return True
-        return False;
+        return False

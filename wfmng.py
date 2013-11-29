@@ -278,8 +278,14 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
         # open LOBCDER connection
         webdav = easywebdav.connect( app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username = user, password = ticket )
         workflowFolder = LOBCDER_ROOT_IN_FILESYSTEM + workflowId + '/'
-        if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
-            webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId)
+        try:
+            if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
+                webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId)
+        except Exception as e:
+            # This is done to skip an erratic behaviour of the webdav, that is triggering an exception
+            # even after the directory is successfully created
+            if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
+               raise e
         # parse input definition
         baclavaContent = ET.fromstring(inputDefinition)
         for dataThing in baclavaContent:
@@ -361,7 +367,7 @@ def deleteTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket):
     server.count = server.count - 1
     db.session.commit()
     serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
-    if server.count==0: # if there are no more workflows running, delete the server
+    if server.count<=0: # if there are no more workflows running, delete the server
         ret = serverManager.deleteWorkflow( tavernaServerWorkflowId, ticket)
         db.session.delete(server)
         db.session.commit()
@@ -378,7 +384,38 @@ def getTavernaServersList(ticket):
     return ret
 
 
-def createTavernaServerWorkflow(tavernaServerASid, user, ticket):
+def initTavernaRequest(user):
+    """
+       Inizialized the Taverna object into wfmng before to make the call.
+       It's Iportant to run befor every call to taverna server.
+       Arguments:
+
+            user (string): current user name
+
+        Returns:
+
+            dictionary::
+
+                Success -- True
+                Failure -- False
+
+    """
+    try:
+        server = TavernaServer.query.filter_by(username=user['username']).first()
+        if server is not None:
+            serverURL = server.url[(server.url.find("//")+2):]  # remove http:// or https://
+            path = serverURL[(serverURL.find("/")+1):]        # split path
+            serverURL = serverURL[:serverURL.find("/")]       # split server base URL
+            tavernaServer.setServerURL(serverURL)
+            tavernaServer.setServicePath("/"+path+"/taverna-server/rest/runs")
+            return True
+    except Exception, e:
+        pass
+
+    return False
+
+
+def createTavernaServerWorkflow(user, ticket):
     """
         Checks if the user is already using a taverna server workflow. If it is not, a new taverna server workflow is created.
         If there are no more workflows running in the server, the workflow is deleted from the cloudfacade  
@@ -394,12 +431,13 @@ def createTavernaServerWorkflow(tavernaServerASid, user, ticket):
 
             dictionary::
 
-                Success -- {'workflowId':workflowId, 'serverURL':serverURL}
+                Success -- {'workflowId':workflowId, 'serverURL':serverURL, 'asConfigId': atomic service config id}
                 Failure -- { }
      """
     ret= {}
     server = TavernaServer.query.filter_by(username=user).first()
     if server is None:
+        tavernaServerASid = app.config["TAVERNA_SERVER_AS_ID"]
         serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
         ret_workflow = serverManager.createWorkflow(ticket)
         workflowId = ret_workflow["workflowId"]
@@ -423,13 +461,17 @@ def createTavernaServerWorkflow(tavernaServerASid, user, ticket):
                     time.sleep(5)
                 ret["workflowId"] = workflowId
                 ret["serverURL"] =  ret_web["endpoint"] +"/taverna-server/"
+                ret["asConfigId"] = atomicServiceConfigId
+
     else:
-        ret["workflowId"] = server.workflowId
-        ret["serverURL"] =  server.url +"/taverna-server/"
+        ret["tavernawfId"] = server.workflowId
+        ret["tavernaURL"] = server.url +"/taverna-server/"
+        ret["asConfigId"] = server.asConfigId
 
     return ret
 
-def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, pluginDefinition, certificateFileName, pluginPropertiesFileName, ticket, tavernaServerUrl=''):
+
+def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, ticket, tavernaServerUrl=''):
     """ sumbit the workflow and its input definition to the taverna server
 
         Arguments:
@@ -438,12 +480,6 @@ def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, pluginDef
             workflowDefinition (string): the workflow definition file string buffer
 
             inputDefinition (string): the input definition file string buffer
-
-            pluginDefinition (string): the plugin specification file string buffer
-
-            certificateFileName (string): filename of the certificate of the cloud provider 
-
-            pluginPropertiesFileName (string): filename of the plugin properties file
 
             tavernaServerUrl (string): the taverna server url to submit the workflow
 
@@ -466,18 +502,19 @@ def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, pluginDef
 
     if not tavernaServerUrl:
         server = TavernaServer.query.filter_by(username=user['username']).first()
-        if server is not None:
-            tavernaServer.setServerURL(server.url)
-            serverURL = server.url
-            serverURL = serverURL[(serverURL.find("//")+2):]  # remove http:// or https://
-            path = serverURL[(serverURL.find("/")+1):]        # split path
-            serverURL = serverURL[:serverURL.find("/")]       # split server base URL
-            tavernaServer.setServerURL(serverURL)
-            tavernaServer.setServicePath("/"+path+"/taverna-server/rest/runs")
+        initTavernaRequest(user)
 
 
     # create worfklow object 
     ret = tavernaServer.createWorkflow(workflowDefinition)
+
+    abs_path = os.path.abspath(os.path.dirname(__file__))
+    # pluginDefinition (string): the plugin specification file string buffer
+    pluginDefinition = open(os.path.join(abs_path, 'plugins.xml'), 'r').read()
+    # certificateFileName (string): filename of the certificate of the cloud provider
+    certificateFileName = "vph.cyfronet.crt"
+    # pluginPropertiesFileName (string): filename of the plugin properties file
+    pluginPropertiesFileName = "vphshare.properties"
 
     ## set up the ticket in the plugin configuration 
     if 'workflowId' in ret and ret['workflowId']:
@@ -549,7 +586,7 @@ def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, pluginDef
         
         # increase number of workflows running in this server
         server = TavernaServer.query.filter_by(username=user['username']).first()
-        server.count = server.count + 1 
+        server.count += 1
        
         # write changes to database
         db.session.commit()
@@ -645,7 +682,7 @@ def startWorkflow(workflowId):
                 'error.description': 'workflowId not found or not valid'}
 
 
-def getWorkflowInformation(workflowId):
+def getWorkflowInformation(workflowId, ticket):
     """ return all information related to the workflow with the given id
 
         Arguments:
@@ -657,7 +694,10 @@ def getWorkflowInformation(workflowId):
                 Success -- {'command':'getWorkflowInformation', 'workflowId':workflowId, 'info01':'a string value', 'info02':'a string value',..}
                 Failure -- {'command':'getWorkflowInformation', 'error.description':'', 'error.code':''}
     """
-
+    user = extractUserFromTicket(ticket)
+    server = TavernaServer.query.filter_by(username=user['username']).first()
+    if not initTavernaRequest(user):
+        return {'command':'getWorkflowInformation', 'error.description':'No Tavrna server run for user %s' % user, 'error.code':'500'}
     ret = tavernaServer.getWorkflowInformation(workflowId)
 
     # allow client to retrieve this request 

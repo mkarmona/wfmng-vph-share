@@ -6,10 +6,8 @@ from xmlrpclib import ServerProxy
 from auth import getAuthTicket
 
 wfmng = ServerProxy("http://localhost:5000/api")
-#user = 'testuser'
-#passwd = '6w8DHF'
-user = 'asagli'
-passwd = 'selvagg.86'
+user = 'testuser'
+passwd = '6w8DHF'
 
 tavernaServerASid = "51ded4da86648825040093fe" # (Taverna server secured - SUN JDK)
 #"526a78538664880543005f6b" # (Taverna server insecured - SUN JDK)
@@ -18,14 +16,17 @@ ticket = getAuthTicket( user, passwd )
 
 #print "=== getWorkflowsList"
 #print wfmng.getWorkflowsList({}, ticket) # {} is a query
-
 print "=== createTavernaServerWorkflow"
-ret = wfmng.createTavernaServerWorkflow(tavernaServerASid, user, ticket)
+ret = wfmng.createTavernaServerWorkflow(user, ticket)
 
 if ret:
     tavernaServerWorkflowId = ret["workflowId"]
+    #Delete when Taverna not work properly
+    #ret = wfmng.deleteTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket)
+    #return
+
     print "Using Taverna Server in workflow " + tavernaServerWorkflowId
-    print "Server URL: " + ret["serverURL"] 
+    print "Server URL: " + ret["serverURL"]
     print "=== submitWorkflow"
     abs_path = os.path.abspath(os.path.dirname(__file__))
     wf_definition = open(os.path.join(abs_path, 'SimpleWorkflow.t2flow'), 'r').read()
@@ -38,7 +39,7 @@ if ret:
     plugin_properties_file = "vphshare.properties"
 
     # submit worflow
-    ret = wfmng.submitWorkflow(wf_title, wf_definition, input_definition, plugin_definition, certificate_file, plugin_properties_file, ticket)
+    ret = wfmng.submitWorkflow(wf_title, wf_definition, input_definition, ticket)
     print ret
 
     if 'workflowId' in ret and ret['workflowId']:
