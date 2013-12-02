@@ -312,7 +312,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         elementData = workflowFolder + splittedString[len(splittedString)-1]
                         copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
                         copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
-                inputDefinition.replace(elementData, base64.b64encode(copyDestination))
+                inputDefinition.replace(dataElementData['b:dataElementData'], base64.b64encode(elementData))
                 webdav.copy( copySource , copyDestination)
             else:
             # if partialOrder tag is found, the input corresponds to a list of values
@@ -331,7 +331,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV) 
                         copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
                         webdav.copy( copySource , copyDestination)
-                        inputDefinition.replace(elementData, base64.b64encode(copyDestination))
+                        inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData))
         ret['inputDefinition'] = inputDefinition
     except Exception as e:
         ret['workflowId'] = ""
@@ -653,11 +653,12 @@ def restartWorkflow(workflowId, ticket):
                 'error.description': 'workflowId not found or not valid'}
 
 
-def startWorkflow(workflowId):
+def startWorkflow(workflowId, ticket):
     """ start the workflow with the given workflow id
 
         Arguments:
             workflowId (string): the workflow unique identifier
+            ticket(string): user ticket
 
         Returns:
             dictionary::
@@ -667,6 +668,11 @@ def startWorkflow(workflowId):
     """
 
     # control if workflow id is valid
+    user = extractUserFromTicket(ticket)
+    server = TavernaServer.query.filter_by(username=user['username']).first()
+    if not initTavernaRequest(user):
+        return {'command':'startWorkflow', 'error.description':'No Tavrna server run for user %s' % user, 'error.code':'500'}
+
     wf = Workflow.query.filter_by(workflowId=workflowId).first()
 
     if wf is not None:
@@ -727,7 +733,7 @@ def getWorkflowInformation(workflowId, ticket):
     return ret
 
 
-def deleteWorkflow(workflowId):
+def deleteWorkflow(workflowId, ticket):
     """ delete the workflow with the given id, if any
 
         Arguments:
@@ -741,6 +747,11 @@ def deleteWorkflow(workflowId):
     """
 
     ret = {}
+    user = extractUserFromTicket(ticket)
+    server = TavernaServer.query.filter_by(username=user['username']).first()
+    if not initTavernaRequest(user):
+        return {'command':'deleteWorkflow', 'error.description':'No Tavrna server run for user %s' % user, 'error.code':'500'}
+    initTavernaRequest(user)
 
     wf = Workflow.query.filter_by(workflowId=workflowId).first()
     if wf is not None:
