@@ -34,6 +34,7 @@ from taverna import TavernaServerConnector
 
 # requirements for createOutputFolders
 import xml.etree.ElementTree as ET
+import xmltodict
 import string
 import base64
 from cyfronet import easywebdav
@@ -287,46 +288,57 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
             if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
                raise e
         # parse input definition
-        baclavaContent = ET.fromstring(inputDefinition)
-        for dataThing in baclavaContent:
-            myGridDataDocument=dataThing.find('b:myGridDataDocument', namespaces=namespaces)
-            partialOrder = myGridDataDocument.find('b:partialOrder', namespaces=namespaces)
+        baclavaContent = xmltodict.parse(inputDefinition.encode('utf-8'))
+        for dataThing in baclavaContent['b:dataThingMap']['b:dataThing']:
+            myGridDataDocument=dataThing.get('b:myGridDataDocument', None)
+            partialOrder = myGridDataDocument.get('b:partialOrder', None)
             # if partialOrder tag is not found, the input corresponds to a single value
             if partialOrder is None:
-                dataElement = myGridDataDocument.find('b:dataElement', namespaces=namespaces)
-                for dataElementData in dataElement:
-                    # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
-                    decodedString = base64.b64decode(dataElementData.text)
+                dataElement = myGridDataDocument.get('b:dataElement',None)
+                copySource = copyDestination = ''
+                if type(dataElement) is not type(list):
+                    elementData = dataElement['b:dataElementData']
+                    decodedString = base64.b64decode(elementData)
                     splittedString = string.split( decodedString ,'/')
-                    dataElementData.text = workflowFolder + splittedString[len(splittedString)-1] 
-                    copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV) 
-                    copyDestination = string.replace(dataElementData.text, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
-                    webdav.copy( copySource , copyDestination)
-                    dataElementData.text = base64.b64encode(dataElementData.text)
+                    elementData = workflowFolder + splittedString[len(splittedString)-1]
+                    copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
+                    copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
+                else:
+                    for dataElementData in dataElement:
+                        # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
+                        elementData = dataElementData['b:dataElementData']
+                        decodedString = base64.b64decode(elementData)
+                        splittedString = string.split( decodedString ,'/')
+                        elementData = workflowFolder + splittedString[len(splittedString)-1]
+                        copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
+                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
+                inputDefinition.replace(copySource, copyDestination)
+                webdav.copy( copySource , copyDestination)
             else:
             # if partialOrder tag is found, the input corresponds to a list of values
-               if 'type' in partialOrder.attrib and partialOrder.attrib['type']=="list":
-                    itemList = partialOrder.find('b:itemList', namespaces=namespaces)
+               if 'type' in partialOrder and partialOrder['type'] == "list":
+                    itemList = partialOrder.get('b:itemList', None)
                     for dataElement in itemList:
                         # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
-                        dataElementData = dataElement.find('b:dataElementData', namespaces=namespaces)
-                        decodedString = base64.b64decode(dataElementData.text)
+                        elementData = dataElement['b:dataElementData']
+                        decodedString = base64.b64decode(elementData)
                         splittedString = string.split( decodedString ,'/')
                         # include the index of the element on the folder name
                         destinationFolder = LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + dataElement.attrib['index']
                         if webdav.exists(destinationFolder) == False:
                             webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + dataElement.attrib['index'])
-                        dataElementData.text = workflowFolder + dataElement.attrib['index'] + '/' + splittedString[len(splittedString)-1]
+                        elementData = workflowFolder + dataElement.attrib['index'] + '/' + splittedString[len(splittedString)-1]
                         copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV) 
-                        copyDestination = string.replace(dataElementData.text, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
+                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
                         webdav.copy( copySource , copyDestination)
-                        dataElementData.text = base64.b64encode(dataElementData.text)
-        ret['inputDefinition'] =  ET.tostring(baclavaContent)
+                        inputDefinition.replace(copySource, copyDestination)
+        ret['inputDefinition'] = inputDefinition
     except Exception as e:
         ret['workflowId'] = ""
         ret['inputDefinition'] = ""
         ret["error.description"] = "Error creating workflow output folders" 
         ret["error.code"] = type(e)
+        
     return ret
 
 ############################################################################
@@ -459,8 +471,8 @@ def createTavernaServerWorkflow(user, ticket):
                 # wait a bit until the server is ready.
                 while serverManager.isWebEndpointReady(ret_web["endpoint"]+"/taverna-server/rest/runs/", app.config["TAVERNA_SSH_USERNAME"], app.config["TAVERNA_SSH_PASSWORD"])!=True:
                     time.sleep(5)
-                ret["workflowId"] = workflowId
-                ret["serverURL"] =  ret_web["endpoint"] +"/taverna-server/"
+                ret["tavernawfId"] = workflowId
+                ret["tavernaURL"] =  ret_web["endpoint"] +"/taverna-server/"
                 ret["asConfigId"] = atomicServiceConfigId
 
     else:

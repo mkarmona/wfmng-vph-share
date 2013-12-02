@@ -6,8 +6,10 @@ from xmlrpclib import ServerProxy
 from auth import getAuthTicket
 
 wfmng = ServerProxy("http://localhost:5000/api")
-user = 'testuser'
-passwd = '6w8DHF'
+#user = 'testuser'
+#passwd = '6w8DHF'
+user = 'asagli'
+passwd = 'selvagg.86'
 
 tavernaServerASid = "51ded4da86648825040093fe" # (Taverna server secured - SUN JDK)
 #"526a78538664880543005f6b" # (Taverna server insecured - SUN JDK)
@@ -21,9 +23,9 @@ print "=== createTavernaServerWorkflow"
 ret = wfmng.createTavernaServerWorkflow(user, ticket)
 
 if ret:
-    tavernaServerWorkflowId = ret["workflowId"]
+    tavernaServerWorkflowId = ret["tavernawfId"]
     print "Using Taverna Server in workflow " + tavernaServerWorkflowId
-    print "Server URL: " + ret["serverURL"] 
+    print "Server URL: " + ret["tavernaURL"]
     print "=== submitWorkflow"
     abs_path = os.path.abspath(os.path.dirname(__file__))
     wf_definition = open(os.path.join(abs_path, 'SimpleWorkflow.t2flow'), 'r').read()
@@ -45,14 +47,14 @@ if ret:
         print wfmng.startWorkflow(wf_id)
 
         print "=== getWorkflowInformation"
-        info = wfmng.getWorkflowInformation(wf_id)
+        info = wfmng.getWorkflowInformation(wf_id,ticket)
         print info
 
         while info['status'] != 'Finished':
             print "=== sleeping for 5..."
             time.sleep(5)
             print "=== getWorkflowInformation"
-            info = wfmng.getWorkflowInformation(wf_id)
+            info = wfmng.getWorkflowInformation(wf_id,ticket)
             print info
 
         print "=== deleteWorkflow"
