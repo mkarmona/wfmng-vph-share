@@ -303,6 +303,8 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                     elementData = workflowFolder + splittedString[len(splittedString)-1]
                     copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
                     copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
+                    inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData))
+                    webdav.copy( copySource , copyDestination)
                 else:
                     for dataElementData in dataElement:
                         # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
@@ -312,8 +314,8 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         elementData = workflowFolder + splittedString[len(splittedString)-1]
                         copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
                         copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
-                inputDefinition.replace(dataElementData['b:dataElementData'], base64.b64encode(elementData))
-                webdav.copy( copySource , copyDestination)
+                        inputDefinition.replace(dataElementData['b:dataElementData'], base64.b64encode(elementData))
+                        webdav.copy( copySource , copyDestination)
             else:
             # if partialOrder tag is found, the input corresponds to a list of values
                if 'type' in partialOrder and partialOrder['type'] == "list":
@@ -608,7 +610,6 @@ def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, ticket, t
 
     # allow client to retrieve this request         
     ret['command'] = 'submitWorkflow'
-
     return ret
 
 
