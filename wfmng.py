@@ -312,7 +312,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         elementData = workflowFolder + splittedString[len(splittedString)-1]
                         copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
                         copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
-                inputDefinition.replace(copySource, copyDestination)
+                inputDefinition.replace(elementData, base64.b64encode(copyDestination))
                 webdav.copy( copySource , copyDestination)
             else:
             # if partialOrder tag is found, the input corresponds to a list of values
@@ -331,7 +331,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV) 
                         copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
                         webdav.copy( copySource , copyDestination)
-                        inputDefinition.replace(copySource, copyDestination)
+                        inputDefinition.replace(elementData, base64.b64encode(copyDestination))
         ret['inputDefinition'] = inputDefinition
     except Exception as e:
         ret['workflowId'] = ""
