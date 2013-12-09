@@ -430,7 +430,7 @@ def initTavernaRequest(user):
     return False
 
 
-def createTavernaServerWorkflow(user, ticket):
+def createTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket):
     """
         Checks if the user is already using a taverna server workflow. If it is not, a new taverna server workflow is created.
         If there are no more workflows running in the server, the workflow is deleted from the cloudfacade  
@@ -452,7 +452,7 @@ def createTavernaServerWorkflow(user, ticket):
     ret= {}
     server = TavernaServer.query.filter_by(username=user).first()
     if server is None:
-        tavernaServerASid = app.config["TAVERNA_SERVER_AS_ID"]
+        tavernaServerASid = tavernaServerWorkflowId
         serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
         ret_workflow = serverManager.createWorkflow(ticket)
         workflowId = ret_workflow["workflowId"]
