@@ -31,6 +31,7 @@ except ImportError, e:
 
 from auth import extractUserFromTicket
 from taverna import TavernaServerConnector
+import requests
 
 # requirements for createOutputFolders
 import xml.etree.ElementTree as ET
@@ -339,7 +340,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
         ret['workflowId'] = ""
         ret['inputDefinition'] = ""
         ret["error.description"] = "Error creating workflow output folders" 
-        ret["error.code"] = type(e)
+        ret["error.code"] = e
         
     return ret
 
@@ -356,7 +357,7 @@ def updateAllWorkflows():
 
     return len(wfs)
 
-def deleteTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket):
+def deleteTavernaServerWorkflow(user, ticket):
     """
         Reduces the amount of workflows running in the taverna server instantiated in the workflow with the specified id.
         If there are no more workflows running in the server, the workflow is deleted from the cloudfacade  
@@ -378,7 +379,7 @@ def deleteTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket):
     ret = {}
     ret["workflowId"] = ""
     server = TavernaServer.query.filter_by(username=user).first()
-    server.count = server.count - 1
+    tavernaServerWorkflowId = server.workflowId
     db.session.commit()
     serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
     if server.count<=0: # if there are no more workflows running, delete the server
@@ -485,7 +486,7 @@ def createTavernaServerWorkflow(user, ticket):
     return ret
 
 
-def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, ticket, tavernaServerUrl=''):
+def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, ticket, eid='', tavernaServerUrl=''):
     """ sumbit the workflow and its input definition to the taverna server
 
         Arguments:
@@ -521,6 +522,16 @@ def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, ticket, t
 
     # create worfklow object 
     ret = tavernaServer.createWorkflow(workflowDefinition)
+    if 'workflowId' in ret and ret['workflowId'] == '' and eid:
+        #change the status manualy to the MI
+        requests.post(
+            "%s/workspace/changestatus" % app.config["MI_URL"],
+            auth=("", ticket),
+            data = {'eid': eid, 'status': 'Error on submiting', 'user':user['username']},
+            verify = False
+        )
+        deleteTavernaServerWorkflow(user,ticket)
+
 
     abs_path = os.path.abspath(os.path.dirname(__file__))
     # pluginDefinition (string): the plugin specification file string buffer
@@ -645,7 +656,7 @@ def restartWorkflow(workflowId, ticket):
 
         # make it start
         if 'workflowId' in ret and ret['workflowId']:
-            tavernaServer.startWorkflow(ret['workflowId'])
+            tavernaServer.startWorkflow(ret['workflowId'],ticket)
 
         return ret
 
@@ -697,8 +708,40 @@ def startWorkflow(workflowId, ticket):
         return ret
 
     else:
+        wf.status = "Finished"
         return {'command': 'startWorkflow', 'returnValue': 'ko', 'error.code': '404',
                 'error.description': 'workflowId not found or not valid'}
+
+
+def deleteWorkflowFromTaverna(workflowId, ticket):
+    """ delete the workflow with the given id, if any
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+        Returns:
+            dictionary::
+
+                Success -- {'command':'deleteWorkflow', 'returnValue':'ok'}
+                Failure -- {'command':'deleteWorkflow', 'returnValue':'ko', 'error.description':'', 'error.code':''}
+    """
+
+    ret = {}
+    user = extractUserFromTicket(ticket)
+    server = TavernaServer.query.filter_by(username=user['username']).first()
+    if not initTavernaRequest(user):
+        return False
+
+    wf = Workflow.query.filter_by(workflowId=workflowId).first()
+    if wf is not None:
+        # delete workflow from taverna
+        ret = tavernaServer.deleteWorkflow(workflowId)
+        if ret.get('status', None) is "Deleted":
+            server.count = server.count - 1 # the counter have to depend from taverna api!
+            db.session.commit()
+            deleteTavernaServerWorkflow(user, ticket)
+    return True
+        # allow client to retrieve this request
 
 
 def getWorkflowInformation(workflowId, ticket):
@@ -714,12 +757,16 @@ def getWorkflowInformation(workflowId, ticket):
                 Failure -- {'command':'getWorkflowInformation', 'error.description':'', 'error.code':''}
     """
     user = extractUserFromTicket(ticket)
-    server = TavernaServer.query.filter_by(username=user['username']).first()
-    if not initTavernaRequest(user):
-        return {'command':'getWorkflowInformation', 'error.description':'No Tavrna server run for user %s' % user, 'error.code':'500'}
-    ret = tavernaServer.getWorkflowInformation(workflowId)
+    wf = Workflow.query.filter_by(workflowId=workflowId).first()
+    if wf.status not in ['Finished', 'Deleted']:
+        if not initTavernaRequest(user):
+            return {'command':'getWorkflowInformation', 'error.description':'No Taverna server run for user %s' % user, 'error.code':'500'}
+        ret = tavernaServer.getWorkflowInformation(workflowId)
+        if ret['status'] in ['Finished', 'Deleted']:
+            deleteWorkflowFromTaverna(workflowId, ticket)
+    else:
+        ret = wf.toDictionary()
 
-    # allow client to retrieve this request 
     ret['command'] = "getWorkflowInformation"
 
     wf = Workflow.query.filter_by(workflowId=workflowId).first()
@@ -749,15 +796,10 @@ def deleteWorkflow(workflowId, ticket):
 
     ret = {}
     user = extractUserFromTicket(ticket)
-    server = TavernaServer.query.filter_by(username=user['username']).first()
-    if not initTavernaRequest(user):
-        return {'command':'deleteWorkflow', 'error.description':'No Tavrna server run for user %s' % user, 'error.code':'500'}
-    initTavernaRequest(user)
-
     wf = Workflow.query.filter_by(workflowId=workflowId).first()
+    ret['workflowId'] = workflowId
     if wf is not None:
         # delete workflow from taverna
-        ret = tavernaServer.deleteWorkflow(workflowId)
         db.session.delete(wf)
         db.session.commit()
         ret["returnValue"] = "ok"
