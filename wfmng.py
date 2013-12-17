@@ -7,7 +7,7 @@
 import sys
 import os
 import smtplib
-
+from datetime import datetime, timedelta
 import argparse
 from email.mime.text import MIMEText
 
@@ -34,7 +34,6 @@ from taverna import TavernaServerConnector
 import requests
 
 # requirements for createOutputFolders
-import xml.etree.ElementTree as ET
 import xmltodict
 import string
 import base64
@@ -57,20 +56,9 @@ else:
 xmlrpc = XMLRPCHandler("xmlrpc")
 xmlrpc.connect(app, '/api')
 
-
 ############################################################################
-# create the taverna server connector
-
-tavernaServer = TavernaServerConnector(
-    app.config["TAVERNA_SSH_TUNNELING"],
-    app.config["TAVERNA_URL"],
-    app.config["TAVERNA_SSH_LOCAL_PORT"],
-    app.config["TAVERNA_SSH_REMOTE_HOST"],
-    app.config["TAVERNA_SSH_REMOTE_PORT"],
-    app.config["TAVERNA_SSH_USERNAME"],
-    app.config["TAVERNA_SSH_PASSWORD"],
-    app.config["TAVERNA_CREATE_WORKFLOW_MAX_NUMBER_OF_ATTEMPTS"])
-
+# create the Cloud server connector
+serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
 
 ############################################################################
 # configure database
@@ -107,11 +95,10 @@ class Workflow(db.Model):
 
             stderr (string): the taverna command line standard error stream
 
-            complete (boolean): True if the workflow is finished and all the related log cached
 
     """
 
-    workflowId = db.Column(db.String(80), primary_key=True)
+    workflowRunId = db.Column(db.String(80), primary_key=True)
     username = db.Column(db.String(80), primary_key=False)
     title = db.Column(db.String(120), primary_key=False)
     status = db.Column(db.String(20), primary_key=False)
@@ -122,12 +109,12 @@ class Workflow(db.Model):
     exitcode = db.Column(db.String(5), primary_key=False)
     stdout = db.Column(db.String(2048), primary_key=False)
     stderr = db.Column(db.String(2048), primary_key=False)
-    complete = db.Column(db.Boolean(), primary_key=False)
+    outputfolder = db.Column(db.String(2048), primary_key=False)
 
-    def __init__(self, username, workflowId, title, status, createTime, startTime="", finishTime="",
+    def __init__(self, username, workflowId, title, outputfolder, status = "Initialized", createTime = "", startTime="", finishTime="",
                  expiry="", exitcode="", stdout="", stderr=""):
         self.username = username
-        self.workflowId = workflowId
+        self.workflowRunId = workflowId
         self.title = title
         self.status = status
         self.createTime = createTime
@@ -137,7 +124,7 @@ class Workflow(db.Model):
         self.exitcode = exitcode
         self.stdout = stdout
         self.stderr = stderr
-        self.complete = False
+        self.outputfolder = outputfolder
 
     def __repr__(self):
         return '<Workflow %r-%r>' % (self.username, self.workflowId)
@@ -156,7 +143,7 @@ class Workflow(db.Model):
                'stdout': self.stdout,
                'stderr': self.stderr,
                'owner': self.username,
-               'complete': self.complete
+               'outputfolder': self.outputfolder
         }
 
         return ret
@@ -165,8 +152,8 @@ class Workflow(db.Model):
         """ update the worfklow according to the given dictionary """
 
         for key in dir(self):
-            if d.has_key(key) and key not in ['stdout', 'stderr']:
-                setattr(self, key, d[key])
+            if d.has_key(key):
+                    setattr(self, key, d[key])
 
 
 class SessionCache(db.Model):
@@ -191,6 +178,26 @@ class SessionCache(db.Model):
     def __repr__(self):
         return '<UserCache %r-%r>' % (self.username, self.tkt)
 
+
+class Execution(db.Model):
+    username = db.Column(db.String(80), primary_key=False)
+    eid = db.Column(db.Integer(), primary_key=True)
+    status = db.Column(db.Integer(), primary_key=False)
+    tavernaId = db.Column(db.String(80), primary_key=False)
+    workflowRunId = db.Column(db.String(80), primary_key=False)
+    error = db.Column(db.Boolean(), primary_key=False)
+    error_msg = db.Column(db.String(80), primary_key=False)
+
+
+    def __init__(self, username, eid, status=0, tavernaId='', workflowRunId=''):
+        self.username = username
+        self.eid = eid
+        self.status = status
+        self.tavernaId = tavernaId
+        self.workflowRunId = workflowRunId
+        self.error = False
+        self.error_msg = ''
+
 class TavernaServer(db.Model):
     """ This class represents a Taverna Server workflow (i.e. a workflow containing an AS running a Taverna Server) in the database
         
@@ -206,18 +213,448 @@ class TavernaServer(db.Model):
     url = db.Column(db.String(80), primary_key=True)
     workflowId = db.Column(db.String(80), primary_key=True)
     asConfigId = db.Column(db.String(80), primary_key=True)
-    count = db.Column(db.Integer(), primary_key=False)
-    
-    def __init__(self, username, endpoint, workflowId, asConfigId):
+    userAndPass = db.Column(db.String(80), primary_key=True)
+    tavernaServerCloudId = db.Column(db.String(80), primary_key=True)
+
+    def __init__(self, username, endpoint, workflowId, asConfigId, tavernaServerCloudId , tavernaUser='taverna', tavernaPass='taverna'):
+
         self.username = username
         self.url = endpoint
         self.workflowId = workflowId
         self.asConfigId = asConfigId
-        self.count = 0
-        
+        self.userAndPass = base64.b64encode(tavernaUser + ":" + tavernaPass)
+        self.tavernaServerCloudId = tavernaServerCloudId
+
+    def isAlive(self):
+        response = requests.get(self.url,
+                                 headers={
+                                     'Authorization': 'Basic %s' % self.userAndPass,
+                                     'Accept': 'application/json'
+                                 },
+                                 verify=False)
+
+        if response.status_code == 200:
+            return True
+        return False
+
+    def isWorkflowAlive(self, wfRunId):
+        response = requests.get("%s/%s" % (self.url, wfRunId),
+                                 headers={
+                                     'Authorization': 'Basic %s' % self.userAndPass,
+                                     'Accept': 'application/json'
+                                 },
+                                 verify=False)
+
+        if response.status_code == 200:
+            return True
+        return False
+
+
+    def createWorkflow(self, workflowDefinition):
+        """ Create a new workflow according to the given definition string.
+
+        Arguments:
+            workflowDefinition (string): the workflow definition file string buffer
+
+        Returns:
+            dictionary::
+
+                Success -- 'workflow run id'
+                Failure -- raise Exception with possible error message
+
+        """
+
+        wf = workflowDefinition
+
+        response = requests.post(self.url, data=wf,
+                                 headers={
+                                     'Content-type': 'application/vnd.taverna.t2flow+xml',
+                                     'Authorization': 'Basic %s' % self.userAndPass,
+                                     #'Accept': 'application/json'
+                                 },
+                                 allow_redirects=False,
+                                 verify=False)
+
+        if response.status_code in [201, 200]:
+            # workflow has been correctly created
+            wfRunId = response.headers['location'].split("/")[-1]
+            #wfRunId = response.url.split("/")[-1]
+
+            return wfRunId
+
+        raise Exception("Submitting workflow failed " + response.text)
+
+
+    def setPlugins(self, wfRunId, pluginDefinition):
+        """ Takes the contents of a plugin.xml file, and then creates this file in the server
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+            pluginDefinition (string): the plugin definition file string buffer
+
+        Returns:
+            dictionary::
+
+                Success -- True
+                Failure -- raise errors with message
+
+        """
+
+        plugins = """<t2sr:upload t2sr:name="plugins.xml" xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/rest/">%s</t2sr:upload>""" % base64.b64encode(
+            pluginDefinition)
+
+        response = requests.post("%s/%s/wd/plugins" % (self.url, wfRunId), data=plugins,
+                                 headers={
+                                     "Content-type": "application/xml",
+                                     'Authorization': 'Basic %s' % self.userAndPass
+                                 },
+                                 allow_redirects=True,
+                                 verify=False)
+
+        if response.status_code == 201:
+            return True
+
+        raise Exception("Plugin setting failed " + response.text)
+
+    def setPluginProperties(self, wfRunId, propertiesFileName, propertiesDefinition):
+        """ Creates a properties file with the specified filename and content, and uploads the file to the server
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+            propertiesFileName (string): the name of the properties file to be created
+
+            propertiesDefinition (string): the content of the properties file
+
+        Returns:
+            dictionary::
+
+                Success -- True
+                Failure -- Raise exception with message
+
+        """
+        properties = """<t2sr:upload t2sr:name="%s" xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/rest/">%s</t2sr:upload>""" % (
+            propertiesFileName, base64.b64encode(propertiesDefinition))
+
+        response = requests.post("%s/%s/wd/conf" % (self.url, wfRunId), data=properties,
+                                 headers={
+                                     "Content-type": "application/xml",
+                                     'Authorization': 'Basic %s' % self.userAndPass
+                                 },
+                                 allow_redirects=True,
+                                 verify=False)
+
+        if response.status_code == 201:
+            return True
+
+        raise Exception("Plugin properties setting failed " + response.text)
+
+    def setTicket(self, wfRunId, ticket):
+        """ Stores the specified ticket in the working directory of the workflow with the specified id
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+            ticket (string): a valid authentication ticket
+
+        Returns:
+            dictionary::
+
+                Success -- True
+                Failure -- raise Exception with message
+
+        """
+
+        credential = """<t2sr:upload t2sr:name="ticket" xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/rest/">%s</t2sr:upload>""" % base64.b64encode(
+            ticket)
+
+        response = requests.post("%s/%s/wd/conf" % (self.url, wfRunId), data=credential,
+                                 headers={
+                                     "Content-type": "application/xml",
+                                     'Authorization': 'Basic %s' % self.userAndPass
+                                 },
+                                 allow_redirects=True,
+                                 verify=False)
+
+        if response.status_code == 201:
+            return True
+
+        raise Exception("Ticket setting failed " + response.text)
+
+    def setTrustedIdentity(self, wfRunId, identityFileName, identityDefinition):
+        """ Takes the name of the certificate file, reads the contents of the file and submits the file contents to the server
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+            identityFileName (string): name of the certificate file
+
+            identityDefinition (string): contents of the certificate file
+
+        Returns:
+            dictionary::
+
+                Success -- True
+                Failure -- raise Exception with message
+
+        """
+        identity = """<t2sr:trustedIdentity xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/" xmlns:t2s="http://ns.taverna.org.uk/2010/xml/server/"><t2s:certificateFile>%s</t2s:certificateFile><t2s:certificateBytes>%s</t2s:certificateBytes></t2sr:trustedIdentity>""" % (
+            base64.b64encode(identityFileName), base64.b64encode(identityDefinition))
+
+        response = requests.post("%s/%s/security/trusts" % (self.url, wfRunId), data=identity,
+                                 headers={
+                                     "Content-type": "application/xml",
+                                     'Authorization': 'Basic %s' % self.userAndPass
+                                 },
+                                 allow_redirects=True,
+                                 verify=False)
+
+        if response.status_code == 201:
+            return True
+
+        raise Exception("Trusted Identity setting failed " + response.text)
+
+    def setWorkflowInputs(self, wfRunId, inputDefinition):
+        """ Take the inputs definition string and create a baclava.xml file for the workflow with the given id.
+
+        Arguments:
+            workflowId (string): the workflowd unique identifier
+
+            workflowDefinition (string): the workflow definition file string buffer
+
+            inputDefinition (string):  the input definition file string buffer:param workflowId: the id unique identifier
+
+            defaultInputMap (map): a map with the default inputs to be added to all  (i.e. defaultInputMap = {'sessionTicket': <sessionTicket<, 'workflowId': >workflowId>, ...}
+
+        Returns:
+            dictionary::
+
+                Success -- True
+                Failure -- Raise Exception with message
+        """
+
+        baclava = """<t2sr:upload xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/rest/" t2sr:name="baclava.xml">%s</t2sr:upload>""" % base64.b64encode(
+            inputDefinition)
+
+        response = requests.post("%s/%s/wd" % (self.url, wfRunId), data=baclava,
+                                 headers={
+                                     "Content-type": "application/xml",
+                                     'Authorization': 'Basic %s' % self.userAndPass
+                                 },
+                                 allow_redirects=True,
+                                 verify=False)
+
+        if response.status_code == 201:
+            return True
+
+        raise Exception("Workflow input setting failed " + response.text)
+
+    def getWorkflowInputs(self, wfRunId):
+        """
+            Retrieve the workflow inputs file from taverna  server
+
+        :param workflowId:
+        :return:
+        """
+        response = requests.get("%s/%s/wd/baclava.xml" % (self.url, wfRunId),
+                                headers={
+                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                                    'Authorization': 'Basic %s' % self.userAndPass
+                                },
+                                allow_redirects=True,
+                                verify=False)
+
+        if response.status_code == 200:
+            return response.text
+        return ""
+
+    def getWorkflowDefinition(self, wfRunId):
+        """
+            Retrieve the workflow file from taverna  server
+
+        :param workflowId:
+        :return:
+        """
+
+        response = requests.get("%s/%s/workflow" % (self.url, wfRunId),
+                                headers={
+                                    "Content-type": "text/plain",
+                                    'Authorization': 'Basic %s' % self.userAndPass
+                                },
+                                allow_redirects=True,
+                                verify=False)
+
+        if response.status_code == 200:
+            return response.text
+        return ""
+
+    def getRunInformations(self, wfRunId = ''):
+        """ return the basic information associated to the given workflow id
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+        Returns:
+            dictionary::
+
+                Success -- {'workflowId':'a string value', 'info01':'a string value', 'info02':'a string value',..}
+                Failure -- {'workflowId':'', 'error.description':'', error.code:''}
+
+        """
+        ret = {
+                'status': '',
+                'createTime': '',
+                'startTime': '',
+                'finishTime': '',
+                'expiry': '',
+                'exitcode': '',
+                'stdout': '',
+                'stderr': '',
+                'outputfolder': '',
+                'endpoint': '',
+                'workflowId': '',
+                'asConfigId': '',
+                'tavernaRunning': '',
+                'owner': '',
+                'wfRunning': ''
+        }
+
+        ret['endpoint'] = self.url
+        ret['workflowId'] = self.workflowId
+        ret['asConfigId'] = self.asConfigId
+        ret['tavernaRunning'] = self.isAlive()
+        ret['owner'] = self.username
+        if wfRunId:
+            wfJob = Workflow.query.filter_by(workflowRunId=wfRunId).first()
+            ret['wfRunning'] = self.isWorkflowAlive(wfRunId)
+            ret['outputfolder'] = wfJob.outputfolder
+        else:
+            ret['wfRunning'] = False
+            return ret
+        if ret['wfRunning']:
+            infos = ["status", "createTime", "expiry", "startTime", "finishTime"]
+            for info in infos:
+                ret[info] = self.getInfo(wfRunId, info)
+
+            additional_info = {'stderr': "listeners/io/properties/stderr",
+                               'stdout': "listeners/io/properties/stdout",
+                               'exitcode': "listeners/io/properties/exitcode"}
+
+            for info in additional_info.keys():
+                ret[info] = self.getInfo(wfRunId, additional_info[info])
+            wfJob.update(ret)
+            db.session.commit()
+        elif wfJob:
+
+            ret.update({
+                'status': wfJob.status,
+                'createTime': wfJob.createTime,
+                'startTime': wfJob.startTime,
+                'finishTime': wfJob.finishTime,
+                'expiry': wfJob.expiry,
+                'exitcode': wfJob.exitcode,
+                'stdout': wfJob.stdout,
+                'stderr': wfJob.stderr,
+                'outputfolder': wfJob.outputfolder
+            })
+
+        return ret
+
+    def getInfo(self, wfRunId, info):
+        """ return the workflow id requested info as a string
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+        Returns:
+            string. The requested info as a string
+
+        """
+
+        headers = {"Content-type": "text/plain", 'Authorization': 'Basic %s' % self.userAndPass}
+        response = requests.get('%s/%s/%s' % (self.url, wfRunId, info), headers=headers, verify=False)
+        if response.status_code == 200:
+            return response.content
+        return ""
+
+    def startWorkflow(self, wfRunId):
+        """ start the workflow with the given workflow id
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+        Returns:
+            dictionary::
+
+                Success -- Ture
+                Failure -- False
+
+        """
+        response = requests.put("%s/%s/status" % (self.url, wfRunId ), data="Operating",
+                                headers={
+                                    "Content-type": "text/plain",
+                                    'Authorization': 'Basic %s' % self.userAndPass
+                                }
+        )
+        if response.status_code == 200:
+            return True
+        raise Exception('Error starting workflow on Taverna Server')
+
+    def setExpiry(self, wfRunId, expiry):
+        """ set a new expiry date
+
+        Arguments:
+            wfRunId (string): the workflow run unique identifier
+
+        Returns:
+            dictionary::
+
+                Success -- {'workflowId':'a string value', 'info01':'a string value', 'info02':'a string value',..}
+                Failure -- {'workflowId':'', 'error.description':'', error.code:''}
+
+        """
+        response = requests.put("%s/%s/expiry" % (self.url, wfRunId ), data=expiry,
+                                headers={
+                                    "Content-type": "text/plain",
+                                    'Authorization': 'Basic %s' % self.userAndPass}
+        )
+        if response.status_code == 200:
+            return True
+        return False
+
+    def deleteWorkflow(self, wfRunId):
+        """ delete the workflow with the given workflow id
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+        Returns:
+            dictionary::
+
+                Success -- True
+                Failure -- False
+
+        """
+        if self.isWorkflowAlive(wfRunId):
+
+            response = requests.delete("%s/%s" % (self.url, wfRunId),
+                                       headers={
+                                           "Content-type": "text/plain",
+                                           'Authorization': 'Basic %s' % self.userAndPass
+                                       }
+            )
+
+            if response.status_code == 204:
+                return True
+        else:
+            return True
+
+        return False
+
     def toDictionary(self):
         """ return a dictionary with object properties"""
-        
+
         return {'username': self.username,
                 'url': self.url,
                 'workflowId': self.workflowId,
@@ -256,6 +693,188 @@ def alert_user_by_email(mail_from, mail_to, subject, mail_template, dictionary={
     except BaseException, e:
         pass
 
+def notify_user_by_mi():
+    """
+    send a notification message that will be shown to the Master interface
+    """
+
+
+############################################################################
+# xmlrpc methods
+def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowDefinition, inputDefinition, tavernaURL=""):
+    user = extractUserFromTicket(ticket)
+
+    execution = Execution.query.filter_by(username=user['username'], eid=eid).first()
+    if execution is not None:
+        #reset execution before start
+        deleteExecution(eid, ticket)
+    execution = Execution(user['username'], eid)
+    db.session.add(execution)
+    db.session.commit()
+    server = TavernaServer.query.filter_by(username=user['username'], tavernaServerCloudId=tavernaServerCloudId).first()
+    # remeber try execept
+    try:
+        if server is None:
+            #if the server is not avaible ask to the cloud to start a new one
+            tavernaServerId = serverManager.createWorkflow(ticket)
+            atomicServiceConfigId = serverManager.getAtomicServiceConfigId(tavernaServerCloudId, ticket)
+            if tavernaServerId and atomicServiceConfigId:
+                execution.status = 1
+                db.session.commit()
+                if serverManager.startAtomicService(atomicServiceConfigId, tavernaServerId, ticket):
+                    execution.status = 2
+                    db.session.commit()
+                    endpoint = serverManager.getASwebEndpoint(atomicServiceConfigId, tavernaServerId, ticket)
+                    if endpoint:
+                        #endpoint = endpoint[(endpoint.find("//") + 2):]  # remove http:// or https://
+                        #path = endpoint[(endpoint.find("/") + 1):]        # split path
+                        #endpoint = endpoint[:endpoint.find("/")]       # split server base URL
+                        if tavernaURL is "":
+                            endpoint = "%s/taverna-server/rest/runs" % endpoint.replace('http://','https://')
+                        else:
+                            endpoint = tavernaURL
+                        # now it can be created Taverna server instance
+                        server = TavernaServer(user['username'], endpoint, tavernaServerId, atomicServiceConfigId, tavernaServerCloudId)
+                        execution.tavernaId = tavernaServerId
+                        execution.status = 3
+                        db.session.add(server)
+                        db.session.commit()
+                    else:
+                        raise Exception('Error booting Taverna server')
+                else:
+                    raise Exception('Error starting Atomic service')
+            else:
+                raise Exception('Error contacting cloud facade service')
+        #wait Taverna endpoint is ready
+        while server.isAlive()!= True:
+            time.sleep(5)
+        execution.status = 4
+        db.session.commit()
+        # create worfklow object
+        wfRunid = server.createWorkflow(workflowDefinition)
+        execution.workflowRunId = wfRunid
+        execution.status = 5
+        db.session.commit()
+        abs_path = os.path.abspath(os.path.dirname(__file__))
+        # pluginDefinition (string): the plugin specification file string buffer
+        pluginDefinition = open(os.path.join(abs_path, 'plugins.xml'), 'r').read()
+        # certificateFileName (string): filename of the certificate of the cloud provider
+        certificateFileName = "vph.cyfronet.crt"
+        certificateContent = open(os.path.join(abs_path, certificateFileName), 'r').read()
+        # pluginPropertiesFileName (string): filename of the plugin properties file
+        pluginPropertiesFileName = "vphshare.properties"
+        ## set up the ticket in the plugin configuration
+        server.setTicket(wfRunid, ticket)
+        # set up cloud provider identity certificate
+        server.setTrustedIdentity(wfRunid, certificateFileName, certificateContent)
+        # set up plugins
+        server.setPlugins(wfRunid, pluginDefinition)
+        if os.path.exists(os.path.join(abs_path, pluginPropertiesFileName)):
+            propertiesFileContent = open(os.path.join(abs_path, pluginPropertiesFileName), 'r').read()
+            # set up properties file
+            server.setPluginProperties(wfRunid, pluginPropertiesFileName, propertiesFileContent)
+        # process baclava file to create output folders
+        #TODO code optimization of createOutputfolder method
+        ret_o = createOutputFolders(wfRunid, inputDefinition, user['username'], ticket)
+        if not 'inputDefinition' in ret_o or ret_o['inputDefinition'] == "":
+            raise Exception('Error creating output folder')
+        else:
+            inputDefinition = ret_o['inputDefinition']
+            outputFolder = ret_o['outputFolder']
+        server.setWorkflowInputs(wfRunid, inputDefinition)
+        server.setExpiry(wfRunid, (datetime.now()+timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S.000+01:00"))
+        workflow = Workflow(user['username'], wfRunid, workflowTitle, outputFolder)
+        db.session.add(workflow)
+        execution.status = 6
+        db.session.commit()
+        server.startWorkflow(wfRunid)
+        workflow.status = "Operating"
+
+        execution.status = 7
+        db.session.commit()
+        alert_user_by_email(app.config['MAIL_FROM'], user['email'], '[VPH-Share] Workflow Started', 'mail.html',{'workflowId': wfRunid})
+        #now we pray to God that everything goes well
+    except Exception, e:
+        execution.error = True
+        execution.error_msg = str(e)
+        db.session.commit()
+        stopWorkflow(eid, ticket)
+        return 'False'
+    return 'True'
+
+
+def stopWorkflow(eid, ticket):
+
+    execution = Execution.query.filter_by(eid=eid).first()
+
+    try:
+        if execution.status >=3:
+            server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
+            if execution.status >= 5:
+                workflow = Workflow.query.filter_by(workflowRunId=execution.workflowRunId)
+                if server.isWorkflowAlive(execution.workflowRunId):
+                    server.deleteWorkflow(execution.workflowRunId)
+                workflow.status = "Deleted"
+                db.session.commit()
+            if server.isAlive():
+                # check if there are other executuion
+                serverManager.deleteWorkflow(server.workflowId, ticket)
+        return True
+    except Exception, e:
+        print e
+        pass
+    return False
+
+def deleteExecution(eid, ticket):
+    execution = Execution.query.filter_by(eid=eid).first()
+    if stopWorkflow(eid, ticket):
+        if execution.tavernaId != '':
+            server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
+            db.session.delete(server)
+            db.session.commit()
+        if execution.workflowRunId != '':
+            workflow = Workflow.query.filter_by(workflowRunId=execution.workflowRunId).first()
+            db.session.delete(workflow)
+            db.session.commit()
+        db.session.delete(execution)
+        db.session.commit()
+    return 'True'
+
+
+def getWorkflowInformation(eid, ticket):
+    """ return all information related to the workflow with the given id
+
+        Arguments:
+            workflowId (string): the workflow unique identifier
+
+        Returns:
+            dictionary::
+
+                Success -- {'status': '', 'createTime': '', 'startTime': '', 'finishTime': '', 'expiry': '', 'exitcode': '', 'stdout': '', 'stderr': '', 'outputfolder': '', 'endpoint': '', 'workflowId': '', 'asConfigId': '', 'tavernaRunning': '', 'owner': '', 'wfRunning': ''}
+                Failure -- False
+    """
+    try:
+        ret = {'executionstatus':'', 'error': '', 'error_msg': '', 'status': '', 'createTime': '', 'startTime': '', 'finishTime': '', 'expiry': '', 'exitcode': '', 'stdout': '', 'stderr': '', 'outputfolder': '', 'endpoint': '', 'workflowId': '', 'asConfigId': '', 'tavernaRunning': '', 'owner': '', 'wfRunning': ''}
+        execution = Execution.query.filter_by(eid=eid).first()
+        ret['executionstatus'] = execution.status
+        ret['error'] = execution.error
+        ret['error_msg'] = execution.error_msg
+        if execution.tavernaId:
+            server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
+            if execution.workflowRunId:
+                ret.update(server.getRunInformations(execution.workflowRunId))
+                if ret['status'] == 'Finished':
+                    execution.status = 8
+                    db.session.commit()
+                    ret['executionstatus'] = execution.status
+                    stopWorkflow(eid, ticket)
+            else:
+                ret.update(server.getRunInformations(execution.workflowRunId))
+
+        return ret
+    except Exception, e:
+        return False
+
 def createOutputFolders(workflowId, inputDefinition, user, ticket):
     """
         Parses a baclava input definition file, create an output folder for the workflow with id workflowId,
@@ -278,7 +897,8 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
     ret['inputDefinition'] = ""
     try:
         # open LOBCDER connection
-        webdav = easywebdav.connect( app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username = user, password = ticket )
+        webdav = easywebdav.connect(app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username=user,
+                                    password=ticket)
         workflowFolder = LOBCDER_ROOT_IN_FILESYSTEM + workflowId + '/'
         try:
             if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
@@ -287,583 +907,71 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
             # This is done to skip an erratic behaviour of the webdav, that is triggering an exception
             # even after the directory is successfully created
             if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
-               raise e
-        # parse input definition
+                raise e
+            # parse input definition
         baclavaContent = xmltodict.parse(inputDefinition.encode('utf-8'))
         for dataThing in baclavaContent['b:dataThingMap']['b:dataThing']:
-            myGridDataDocument=dataThing.get('b:myGridDataDocument', None)
+            myGridDataDocument = dataThing.get('b:myGridDataDocument', None)
             partialOrder = myGridDataDocument.get('b:partialOrder', None)
             # if partialOrder tag is not found, the input corresponds to a single value
             if partialOrder is None:
-                dataElement = myGridDataDocument.get('b:dataElement',None)
+                dataElement = myGridDataDocument.get('b:dataElement', None)
                 copySource = copyDestination = ''
                 if type(dataElement) is not type(list):
                     elementData = dataElement['b:dataElementData']
                     decodedString = base64.b64decode(elementData)
-                    splittedString = string.split( decodedString ,'/')
-                    elementData = workflowFolder + splittedString[len(splittedString)-1]
-                    copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
-                    copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
+                    splittedString = string.split(decodedString, '/')
+                    elementData = workflowFolder + splittedString[len(splittedString) - 1]
+                    copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
+                    copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
                     inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData))
-                    webdav.copy( copySource , copyDestination)
+                    webdav.copy(copySource, copyDestination)
                 else:
                     for dataElementData in dataElement:
                         # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
                         elementData = dataElementData['b:dataElementData']
                         decodedString = base64.b64decode(elementData)
-                        splittedString = string.split( decodedString ,'/')
-                        elementData = workflowFolder + splittedString[len(splittedString)-1]
-                        copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
-                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
+                        splittedString = string.split(decodedString, '/')
+                        elementData = workflowFolder + splittedString[len(splittedString) - 1]
+                        copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
+                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM,
+                                                         LOBCDER_ROOT_IN_WEBDAV)
                         inputDefinition.replace(dataElementData['b:dataElementData'], base64.b64encode(elementData))
-                        webdav.copy( copySource , copyDestination)
+                        webdav.copy(copySource, copyDestination)
             else:
             # if partialOrder tag is found, the input corresponds to a list of values
-               if 'type' in partialOrder and partialOrder['type'] == "list":
+                if 'type' in partialOrder and partialOrder['type'] == "list":
                     itemList = partialOrder.get('b:itemList', None)
                     for dataElement in itemList:
                         # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
                         elementData = dataElement['b:dataElementData']
                         decodedString = base64.b64decode(elementData)
-                        splittedString = string.split( decodedString ,'/')
+                        splittedString = string.split(decodedString, '/')
                         # include the index of the element on the folder name
                         destinationFolder = LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + dataElement.attrib['index']
                         if webdav.exists(destinationFolder) == False:
                             webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + dataElement.attrib['index'])
-                        elementData = workflowFolder + dataElement.attrib['index'] + '/' + splittedString[len(splittedString)-1]
-                        copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV) 
-                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM , LOBCDER_ROOT_IN_WEBDAV)
-                        webdav.copy( copySource , copyDestination)
+                        elementData = workflowFolder + dataElement.attrib['index'] + '/' + splittedString[
+                            len(splittedString) - 1]
+                        copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
+                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM,
+                                                         LOBCDER_ROOT_IN_WEBDAV)
+                        webdav.copy(copySource, copyDestination)
                         inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData))
         ret['inputDefinition'] = inputDefinition
+        ret['outputFolder'] = '/%s/' % workflowId
     except Exception as e:
-        ret['workflowId'] = ""
-        ret['inputDefinition'] = ""
-        ret["error.description"] = "Error creating workflow output folders" 
-        ret["error.code"] = e
-        
-    return ret
-
-############################################################################
-# xmlrpc methods
-def updateAllWorkflows():
-    """ update all workflows in database """
-
-    wfs = Workflow.query.all()
-
-    for wf in wfs:
-        if wf.status != 'Finished':
-            getWorkflowInformation(wf.worfklowId)
-
-    return len(wfs)
-
-def deleteTavernaServerWorkflow(user, ticket):
-    """
-        Reduces the amount of workflows running in the taverna server instantiated in the workflow with the specified id.
-        If there are no more workflows running in the server, the workflow is deleted from the cloudfacade  
-        
-        Arguments:
-            tavernaServerWorkflowId (string): the Taverna Server workflow id
-
-            user (string): current user name
-
-            ticket (string): a valid authentication ticket   
-
-        Returns:
-
-            dictionary::
-
-                Success -- {'workflowId': workflowId}
-                Failure -- { }
-    """
-    ret = {}
-    ret["workflowId"] = ""
-    server = TavernaServer.query.filter_by(username=user).first()
-    tavernaServerWorkflowId = server.workflowId
-    db.session.commit()
-    serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
-    if server.count<=0: # if there are no more workflows running, delete the server
-        ret = serverManager.deleteWorkflow( tavernaServerWorkflowId, ticket)
-        db.session.delete(server)
-        db.session.commit()
-    return ret
-
-
-def getTavernaServersList(ticket):
-    ret = {'returnValue': 'ok', 'command': 'getTavernaServersList', 'servers': []}
-    user = extractUserFromTicket(ticket)
-    user_servers = TavernaServer.query.filter_by(username=user['username'])
-    for s in user_servers:
-        ret['servers'].append(s.toDictionary())
+        raise Exception('Error creating output folder')
 
     return ret
-
-
-def initTavernaRequest(user):
-    """
-       Inizialized the Taverna object into wfmng before to make the call.
-       It's Iportant to run befor every call to taverna server.
-       Arguments:
-
-            user (string): current user name
-
-        Returns:
-
-            dictionary::
-
-                Success -- True
-                Failure -- False
-
-    """
-    try:
-        server = TavernaServer.query.filter_by(username=user['username']).first()
-        if server is not None:
-            serverURL = server.url[(server.url.find("//")+2):]  # remove http:// or https://
-            path = serverURL[(serverURL.find("/")+1):]        # split path
-            serverURL = serverURL[:serverURL.find("/")]       # split server base URL
-            tavernaServer.setServerURL(serverURL)
-            tavernaServer.setServicePath("/"+path+"/taverna-server/rest/runs")
-            return True
-    except Exception, e:
-        pass
-
-    return False
-
-
-def createTavernaServerWorkflow(tavernaServerWorkflowId, user, ticket):
-    """
-        Checks if the user is already using a taverna server workflow. If it is not, a new taverna server workflow is created.
-        If there are no more workflows running in the server, the workflow is deleted from the cloudfacade  
-        
-        Arguments:
-            tavernaServerWorkflowId (string): the Taverna Server workflow id
-
-            user (string): current user name
-
-            ticket (string): a valid authentication ticket      
-
-        Returns:
-
-            dictionary::
-
-                Success -- {'workflowId':workflowId, 'serverURL':serverURL, 'asConfigId': atomic service config id}
-                Failure -- { }
-     """
-    ret= {}
-    server = TavernaServer.query.filter_by(username=user).first()
-    if server is None:
-        tavernaServerASid = tavernaServerWorkflowId
-        serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
-        ret_workflow = serverManager.createWorkflow(ticket)
-        workflowId = ret_workflow["workflowId"]
-        ret_ascid = serverManager.getAtomicServiceConfigId(tavernaServerASid, ticket)
-        atomicServiceConfigId = ret_ascid["asConfigId"]
-        if workflowId and atomicServiceConfigId:
-            serverManager.startAtomicService(atomicServiceConfigId, workflowId, ticket)
-            ret_web = serverManager.getASwebEndpoint(atomicServiceConfigId, workflowId, ticket)
-            serverURL = ret_web["endpoint"]
-            if serverURL:
-                server = TavernaServer(user, serverURL, workflowId, atomicServiceConfigId)
-                db.session.add(server)
-                db.session.commit()
-                serverURL = serverURL[(serverURL.find("//")+2):]  # remove http:// or https://
-                path = serverURL[(serverURL.find("/")+1):]        # split path
-                serverURL = serverURL[:serverURL.find("/")]       # split server base URL
-                tavernaServer.setServerURL(serverURL)
-                tavernaServer.setServicePath("/"+path+"/taverna-server/rest/runs")
-                # wait a bit until the server is ready.
-                while serverManager.isWebEndpointReady(ret_web["endpoint"]+"/taverna-server/rest/runs/", app.config["TAVERNA_SSH_USERNAME"], app.config["TAVERNA_SSH_PASSWORD"])!=True:
-                    time.sleep(5)
-                ret["tavernawfId"] = workflowId
-                ret["tavernaURL"] =  ret_web["endpoint"] +"/taverna-server/"
-                ret["asConfigId"] = atomicServiceConfigId
-
-    else:
-        ret["tavernawfId"] = server.workflowId
-        ret["tavernaURL"] = server.url +"/taverna-server/"
-        ret["asConfigId"] = server.asConfigId
-
-    return ret
-
-
-def submitWorkflow(workflowTitle, workflowDefinition, inputDefinition, ticket, eid='', tavernaServerUrl=''):
-    """ sumbit the workflow and its input definition to the taverna server
-
-        Arguments:
-            workflowTitle (string): the workflow title
-
-            workflowDefinition (string): the workflow definition file string buffer
-
-            inputDefinition (string): the input definition file string buffer
-
-            tavernaServerUrl (string): the taverna server url to submit the workflow
-
-            ticket (string): a valid authentication ticket
-
-        Return:
-            dictionary::
-
-                Success -- {'workflowId':'workflowId', 'status':'status', 'createTime':'createTime', 'expiry':'expiry',
-                            'title':workflowTitle, 'complete':False, 'command':'submitWorkflow'}
-                Failure -- {'workflowId':'', 'error.code':'code', 'error.description':'description'}
-    """
-
-    user = extractUserFromTicket(ticket)
-
-    if user is None:
-        response = app.make_response('Forbidden')
-        response.status_code = 403
-        return response
-
-    if not tavernaServerUrl:
-        server = TavernaServer.query.filter_by(username=user['username']).first()
-        initTavernaRequest(user)
-
-
-    # create worfklow object 
-    ret = tavernaServer.createWorkflow(workflowDefinition)
-    if 'workflowId' in ret and ret['workflowId'] == '' and eid:
-        #change the status manualy to the MI
-        requests.post(
-            "%s/workspace/changestatus" % app.config["MI_URL"],
-            auth=("", ticket),
-            data = {'eid': eid, 'status': 'Error on submiting', 'user':user['username']},
-            verify = False
-        )
-        deleteTavernaServerWorkflow(user,ticket)
-
-
-    abs_path = os.path.abspath(os.path.dirname(__file__))
-    # pluginDefinition (string): the plugin specification file string buffer
-    pluginDefinition = open(os.path.join(abs_path, 'plugins.xml'), 'r').read()
-    # certificateFileName (string): filename of the certificate of the cloud provider
-    certificateFileName = "vph.cyfronet.crt"
-    # pluginPropertiesFileName (string): filename of the plugin properties file
-    pluginPropertiesFileName = "vphshare.properties"
-
-    ## set up the ticket in the plugin configuration 
-    if 'workflowId' in ret and ret['workflowId']:
-        ret_u = tavernaServer.setTicket(ret['workflowId'], ticket)
-        if not 'workflowId' in ret_u or not ret_u['workflowId']:
-            # if the set ticket fails 'workflowId' is not included or empty, return the error map
-            return ret_u
-
-    # set up cloud provider identity certificate 
-    if 'workflowId' in ret and ret['workflowId'] and certificateFileName:
-        abs_path = os.path.abspath(os.path.dirname(__file__))
-        if os.path.exists(os.path.join(abs_path, certificateFileName)):
-            certificateContent = open(os.path.join(abs_path, certificateFileName), 'r').read()
-            ret_c = tavernaServer.setTrustedIdentity(ret['workflowId'], certificateFileName, certificateContent)
-            if not 'workflowId' in ret_c or not ret_c['workflowId']:
-                # if the set trusted identity fails 'workflowId' is not included or empty, return the error map
-                return ret_c
-
-    # set up plugins 
-    if 'workflowId' in ret and ret['workflowId'] and pluginDefinition:
-        ret_p =tavernaServer.setPlugins(ret['workflowId'], pluginDefinition)
-        if not 'workflowId' in ret_p or not ret_p['workflowId']:
-            # if the set plugins fails 'workflowId' is not included or empty, return the error map
-            return ret_p
-
-    # set up properties file 
-    if 'workflowId' in ret and ret['workflowId'] and pluginPropertiesFileName:
-        abs_path = os.path.abspath(os.path.dirname(__file__))
-        if os.path.exists(os.path.join(abs_path, pluginPropertiesFileName)):
-            propertiesFileContent = open(os.path.join(abs_path, pluginPropertiesFileName), 'r').read()
-            ret_c = tavernaServer.setPluginProperties(ret['workflowId'], pluginPropertiesFileName, propertiesFileContent)
-            if not 'workflowId' in ret_c or not ret_c['workflowId']:
-                # if the set trusted identity fails 'workflowId' is not included or empty, return the error map
-                return ret_c
-
-    # process baclava file to create output folders 
-    if 'workflowId' in ret and ret['workflowId'] and inputDefinition:
-        ret_o = createOutputFolders(ret['workflowId'], inputDefinition, user['username'], ticket)
-        if not 'inputDefinition' in ret_o or ret_o['inputDefinition']=="":
-            # if processing the output fails the 'inputDefinition' is not included or empty, return the error map
-            return ret_o
-        else:
-            inputDefinition = ret_o['inputDefinition']
-
-    if 'workflowId' in ret and ret['workflowId'] and inputDefinition:
-
-        ret_i = tavernaServer.setWorkflowInputs(ret['workflowId'], inputDefinition)
-
-        if not 'workflowId' in ret_i or not ret['workflowId']:
-            # if the set inputs fails 'workflowId' is not included or empty, return the error map
-            return ret_i
-
-        # create or update the session placeholder
-        cache = SessionCache.query.filter_by(username=user['username']).first()
-        if cache is None:
-            cache = SessionCache(user['username'], user['email'], ticket)
-            db.session.add(cache)
-        else:
-            # update only the ticket and email
-            cache.email = user['email']
-            cache.ticket = ticket
-
-        # create a new worflow object and add it into the database
-        wf = Workflow(user['username'], ret['workflowId'], workflowTitle, ret['status'], ret['createTime'], expiry=ret['expiry'])
-        db.session.add(wf)
-
-        # write changes to database
-        db.session.commit()
-        
-        # increase number of workflows running in this server
-        server = TavernaServer.query.filter_by(username=user['username']).first()
-        server.count += 1
-       
-        # write changes to database
-        db.session.commit()
-
-    ret['title'] = workflowTitle
-    ret['complete'] = False
-
-    # allow client to retrieve this request         
-    ret['command'] = 'submitWorkflow'
-    return ret
-
-
-def restartWorkflow(workflowId, ticket):
-    """ restart the workflow with the given workflow id
-
-        Arguments:
-            workflowId (string): the workflow unique identifier
-
-        Returns:
-            dictionary::
-
-                Success -- {'command':'startWorkflow', 'workflowId':'a string value', 'info01':'a string value', 'info02':'a string value',..}
-                Failure -- {'command':'startWorkflow', 'workflowId':'', 'error.description':'', 'error.code':''}
-    """
-
-    # check if workflow exists and is finished
-    wf = Workflow.query.filter_by(workflowId=workflowId).first()
-
-    if wf is not None and wf.status == 'Finished':
-
-        # recover old workflow definition file and input file
-        title = wf.title
-        workflow_definition_file = tavernaServer.getWorkflowDefinition(workflowId)
-        input_definition_file = tavernaServer.getWorkflowInputs(workflowId)
-
-        # remove old workflow
-        db.session.delete(wf)
-        db.session.commit()
-
-        # create a new workflow
-        ret = submitWorkflow(title, workflow_definition_file, input_definition_file, ticket)
-
-        # make it start
-        if 'workflowId' in ret and ret['workflowId']:
-            tavernaServer.startWorkflow(ret['workflowId'],ticket)
-
-        return ret
-
-    else:
-        return {'command': 'restartWorkflow', 'returnValue': 'ko', 'error.code': '404',
-                'error.description': 'workflowId not found or not valid'}
-
-
-def startWorkflow(workflowId, ticket):
-    """ start the workflow with the given workflow id
-
-        Arguments:
-            workflowId (string): the workflow unique identifier
-            ticket(string): user ticket
-
-        Returns:
-            dictionary::
-
-                Success -- {'command':'startWorkflow', 'workflowId':'a string value', 'info01':'a string value', 'info02':'a string value',..}
-                Failure -- {'command':'startWorkflow', 'workflowId':'', 'error.description':'', 'error.code':''}
-    """
-
-    # control if workflow id is valid
-    user = extractUserFromTicket(ticket)
-    server = TavernaServer.query.filter_by(username=user['username']).first()
-    if not initTavernaRequest(user):
-        return {'command':'startWorkflow', 'error.description':'No Tavrna server run for user %s' % user, 'error.code':'500'}
-
-    wf = Workflow.query.filter_by(workflowId=workflowId).first()
-
-    if wf is not None:
-
-        ret = tavernaServer.startWorkflow(workflowId)
-
-        # allow client to retrieve this request
-        ret['command'] = "startWorkflow"
-        ret['returnValue'] = "ok"
-
-        if wf.status == 'Waiting':
-            wf.status = 'Operating'
-
-        db.session.commit()
-
-        #send an email to the user
-        session = SessionCache.query.filter_by(username=wf.username).first()
-        if session is not None:
-            alert_user_by_email(app.config['MAIL_FROM'], session.email, '[VPH-Share] Workflow Started', 'mail.html', {'workflowId': workflowId})
-
-        return ret
-
-    else:
-        wf.status = "Finished"
-        return {'command': 'startWorkflow', 'returnValue': 'ko', 'error.code': '404',
-                'error.description': 'workflowId not found or not valid'}
-
-
-def deleteWorkflowFromTaverna(workflowId, ticket):
-    """ delete the workflow with the given id, if any
-
-        Arguments:
-            workflowId (string): the workflow unique identifier
-
-        Returns:
-            dictionary::
-
-                Success -- {'command':'deleteWorkflow', 'returnValue':'ok'}
-                Failure -- {'command':'deleteWorkflow', 'returnValue':'ko', 'error.description':'', 'error.code':''}
-    """
-
-    ret = {}
-    user = extractUserFromTicket(ticket)
-    server = TavernaServer.query.filter_by(username=user['username']).first()
-    if not initTavernaRequest(user):
-        return False
-
-    wf = Workflow.query.filter_by(workflowId=workflowId).first()
-    if wf is not None:
-        # delete workflow from taverna
-        ret = tavernaServer.deleteWorkflow(workflowId)
-        if ret.get('status', None) is "Deleted":
-            server.count = server.count - 1 # the counter have to depend from taverna api!
-            db.session.commit()
-            deleteTavernaServerWorkflow(user, ticket)
-    return True
-        # allow client to retrieve this request
-
-
-def getWorkflowInformation(workflowId, ticket):
-    """ return all information related to the workflow with the given id
-
-        Arguments:
-            workflowId (string): the workflow unique identifier
-
-        Returns:
-            dictionary::
-
-                Success -- {'command':'getWorkflowInformation', 'workflowId':workflowId, 'info01':'a string value', 'info02':'a string value',..}
-                Failure -- {'command':'getWorkflowInformation', 'error.description':'', 'error.code':''}
-    """
-    user = extractUserFromTicket(ticket)
-    wf = Workflow.query.filter_by(workflowId=workflowId).first()
-    if wf.status not in ['Finished', 'Deleted']:
-        if not initTavernaRequest(user):
-            return {'command':'getWorkflowInformation', 'error.description':'No Taverna server run for user %s' % user, 'error.code':'500'}
-        ret = tavernaServer.getWorkflowInformation(workflowId)
-        if ret['status'] in ['Finished', 'Deleted']:
-            deleteWorkflowFromTaverna(workflowId, ticket)
-    else:
-        ret = wf.toDictionary()
-
-    ret['command'] = "getWorkflowInformation"
-
-    wf = Workflow.query.filter_by(workflowId=workflowId).first()
-
-    if wf is not None:
-        ret['title'] = wf.title
-        ret['complete'] = wf.complete
-        #TODO handle expired workflows
-        wf.update(ret)
-        db.session.commit()
-
-    return ret
-
-
-def deleteWorkflow(workflowId, ticket):
-    """ delete the workflow with the given id, if any
-
-        Arguments:
-            workflowId (string): the workflow unique identifier
-
-        Returns:
-            dictionary::
-
-                Success -- {'command':'deleteWorkflow', 'returnValue':'ok'}
-                Failure -- {'command':'deleteWorkflow', 'returnValue':'ko', 'error.description':'', 'error.code':''}
-    """
-
-    ret = {}
-    user = extractUserFromTicket(ticket)
-    wf = Workflow.query.filter_by(workflowId=workflowId).first()
-    ret['workflowId'] = workflowId
-    if wf is not None:
-        # delete workflow from taverna
-        db.session.delete(wf)
-        db.session.commit()
-        ret["returnValue"] = "ok"
-
-    else:
-        ret["returnValue"] = "ok"        
-        ret["error.description"] = "The requested workflow does not exist"
-        ret["error.code"] = "404"
-        # allow client to retrieve this request
-    ret['command'] = "deleteWorkflow"
-
-    return ret
-
-
-def getWorkflowsList(query, ticket):
-    """ return the workflows list for the authenticate user
-
-        Arguments:
-            query (dictionary): a dictionary with the query parameters (actually not used)
-
-        Returns:
-            dictionary::
-
-                {'command':'getWorkflowsList', 'workflows':[{'workflowId':'workflowId', 'info01':'info01', }, ...] }
-
-    """
-
-    ret = {}
-
-    # retrieve the user from the ticket
-    user = extractUserFromTicket(ticket)
-
-    wfs = Workflow.query.filter_by(username=user['username'])
-
-    ret["workflows"] = []
-
-    for wf in wfs:
-        status = getattr(wf, "status", "Finished")
-        if status in ["Waiting", "Finished"]:
-            # if it was a builtin workflow, there will be an entry into BuiltinWorkflowResult
-            ret["workflows"].append(wf.toDictionary())
-
-        else:
-            ret["workflows"].append(getWorkflowInformation(wf.workflowId))
-
-    # allow client to retrieve this request
-    ret["command"] = "getWorkflowsList"
-
-    return ret
-
 
 ############################################################################
 # register xmlrpc callback
 xmlrpc.register(hello, "hello")
-xmlrpc.register(submitWorkflow, "submitWorkflow")
-xmlrpc.register(restartWorkflow, "restartWorkflow")
-xmlrpc.register(startWorkflow, "startWorkflow")
+xmlrpc.register(execute_workflow, "execute_workflow")
+xmlrpc.register(stopWorkflow, 'stopWorkflow')
+xmlrpc.register(deleteExecution, 'deleteExecution')
 xmlrpc.register(getWorkflowInformation, "getWorkflowInformation")
-xmlrpc.register(getWorkflowsList, "getWorkflowsList")
-xmlrpc.register(deleteWorkflow, "deleteWorkflow")
-xmlrpc.register(updateAllWorkflows, "updateAllWorkflows")
-xmlrpc.register(createTavernaServerWorkflow, "createTavernaServerWorkflow")
-xmlrpc.register(deleteTavernaServerWorkflow, "deleteTavernaServerWorkflow")
-xmlrpc.register(getTavernaServersList, "getTavernaServersList")
 ############################################################################
 
 if __name__ == "__main__":

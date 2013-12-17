@@ -36,19 +36,14 @@ class CloudFacadeInterface():
                 verify = False
             )
 
-            if con.status_code != 200:
-                ret["workflowId"] = ""
-                ret["error.description"] = "Error creating workflow"
-                ret["error.code"] = con.status_code
-
-            ret["workflowId"] = con.text
+            if con.status_code == 200:
+                return con.text
 
         except Exception as e:
-            ret["workflowId"] = ""
-            ret["error.description"] = "Error creating workflow"
-            ret["error.code"] = e
+            print e
+            pass
 
-        return ret
+        raise Exception('Problem to create the workflow instance')
 
 
     def deleteWorkflow(self,  workflowId, ticket):
@@ -66,25 +61,19 @@ class CloudFacadeInterface():
                 Failure -- {'workflowId':'', 'error.description':'', error.code:''}
 
         """
-        ret = {}
         try:
-            ret["workflowId"] = workflowId
             con = requests.delete(
                 "%s/workflows/%s" % (self.CLOUDFACACE_URL, workflowId),
                 auth=("", ticket),
                 verify = False
             )
-            if con.status_code != 200 and con.status_code != 204:
-                ret["workflowId"] = ""
-                ret["error.description"] = "Error deleting workflow " + workflowId
-                ret["error.code"] = con.status_code
+            if con.status_code in [200, 204]:
+                return True
 
         except Exception as e:
-            ret["workflowId"] = ""
-            ret["error.description"] = "Error deleting workflow " + workflowId
-            ret["error.code"] = e
-
-        return ret
+            print e
+            pass
+        return False
 
 
 
@@ -99,11 +88,10 @@ class CloudFacadeInterface():
         Returns:
             dictionary::
 
-                Success -- {'asConfigId':'a string value'}
-                Failure -- {'asConfigId':'', 'error.description':'', error.code:''}
+                Success -- 'asConfigId'
+                Failure -- raise exception with message
 
         """
-        ret = {}
         try:
             con = requests.get(
                 "%s/atomic_services/%s/configurations" % (self.CLOUDFACACE_URL, atomicServiceId),
@@ -111,20 +99,15 @@ class CloudFacadeInterface():
                verify = False
             )
 
-            if con.status_code != 200:
-                ret["asConfigId"] = ""
-                ret["error.description"] = "Error getting configuration Id for AS " + atomicServiceId
-                ret["error.code"] = con.status_code
-
-            json = con.json()
-            ret["asConfigId"] = json[0]["id"]
+            if con.status_code in [200, 204]:
+                json = con.json()
+                return json[0]["id"]
 
         except Exception as e:
-            ret["asConfigId"] = ""
-            ret["error.description"] = "Error getting configuration Id for AS " + atomicServiceId
-            ret["error.code"] = e
+            print e
+            pass
 
-        return ret
+        raise Exception('Problem to get the atomic service config id')
 
 
 
@@ -141,31 +124,27 @@ class CloudFacadeInterface():
         Returns:
             dictionary::
 
-                Success -- {'workflowId':'a string value'}
-                Failure -- {'workflowId':'', 'error.description':'', error.code:''}
+                Success -- True
+                Failure -- False
 
         """
-        ret = {}
+
         try:
-            ret["workflowId"] = workflowId
-            body = json.dumps( {'asConfigId':  atomicServiceConfigId} )
+            body = json.dumps({'asConfigId':  atomicServiceConfigId})
             con = requests.post(
                 "%s/workflows/%s/atomic_services" % (self.CLOUDFACACE_URL, workflowId),
                 auth=("", ticket),
                 data = body, 
                 verify = False
             )
-            if con.status_code != 200:
-                ret["workflowId"] = ""
-                ret["error.description"] = "Error starting Taverna Server in workflow " + workflowId
-                ret["error.code"] = con.status_code
+
+            if con.status_code in [200, 204]:
+                return True
                 
         except Exception as e:
-            ret["workflowId"] = ""
-            ret["error.description"] = "Error starting Taverna Server in workflow " + workflowId
-            ret["error.code"] = e
-
-        return ret
+            print e
+            pass
+        raise Exception('Atomic service start error')
 
 
 
@@ -182,13 +161,11 @@ class CloudFacadeInterface():
         Returns:
             dictionary::
 
-                Success -- {'endpoint':'a string value'}
-                Failure -- {'endpoint':'', 'error.description':'', error.code:''}
+                Success -- 'endpoint url'
+                Failure -- raise exception
 
         """
-        ret = {}
         try:
-            ret["workflowId"] = workflowId
             url = "null"
             while url.find("null")!=-1:
                 con = requests.get(
@@ -200,14 +177,13 @@ class CloudFacadeInterface():
                 if json["http"][0]["urls"][0].find("null")==-1:
                     url = json["http"][0]["urls"][0]
 
-            ret["endpoint"] = url
+            return url
 
         except Exception as e:
-            ret["endpoint"] = ""
-            ret["error.description"] = "Error getting Taverna Server endpoint in workflow " + workflowId
-            ret["error.code"] = e
+            print e
+            pass
 
-        return ret
+        raise Exception('Taverna Server boot error')
 
 
 
@@ -230,6 +206,6 @@ class CloudFacadeInterface():
                 auth=(username, password),
                 verify = False
                 )
-            if con.status_code == 200:
+            if con.status_code in [200, 204]:
                 return True
         return False
