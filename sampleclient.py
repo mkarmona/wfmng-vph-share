@@ -5,13 +5,13 @@ from xmlrpclib import ServerProxy
 
 from auth import getAuthTicket
 
-wfmng = ServerProxy("http://localhost:5000/api")
+wfmng = ServerProxy("http://wfmng.vph-share.eu/api")
 #user = 'testuser'
 #passwd = '6w8DHF'
 user = 'asagli'
 passwd = 'selvagg.86'
 
-tavernaServerASid = "51ded4da86648825040093fe" # (Taverna server secured - SUN JDK)
+tavernaServerASid = "528a3b948664880b2b00f0cf" # (Taverna server secured - SUN JDK)
 #"526a78538664880543005f6b" # (Taverna server insecured - SUN JDK)
 #"51ded4da86648825040093fe" # (Taverna server secured - OpenJDK)
 ticket = getAuthTicket( user, passwd )
@@ -26,7 +26,7 @@ if ret:
     tavernaServerWorkflowId = ret["tavernawfId"]
     print "Using Taverna Server in workflow " + tavernaServerWorkflowId
     print "Server URL: " + ret["tavernaURL"]
-    print "=== submitWorkflow"
+    print "=== submitWorkflow"    
     abs_path = os.path.abspath(os.path.dirname(__file__))
     wf_definition = open(os.path.join(abs_path, 'SimpleWorkflow.t2flow'), 'r').read()
     input_definition = open(os.path.join(abs_path, 'SimpleWorkflowInputs.xml'), 'r').read()
@@ -39,10 +39,11 @@ if ret:
 
     # submit worflow
     ret = wfmng.submitWorkflow(wf_title, wf_definition, input_definition, ticket)
-    print ret
+    print ret    
 
     if 'workflowId' in ret and ret['workflowId']:
         wf_id = ret['workflowId']
+
         print "=== startWorkflow"
         print wfmng.startWorkflow(wf_id)
 
