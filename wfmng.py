@@ -249,6 +249,25 @@ class TavernaServer(db.Model):
             return True
         return False
 
+    def getWorkflowRunNumber(self):
+        response = requests.get("%s" % (self.url),
+                                 headers={
+                                     'Authorization': 'Basic %s' % self.userAndPass,
+                                     'Accept': 'application/json'
+                                 },
+                                 verify=False)
+
+        if response.status_code == 200:
+            ret = response.json()
+            if ret['runList'] == "":
+                return 0
+            listWf = ret['runList'].get('run', False)
+            if listWf:
+                if type(listWf) is list:
+                    return len(listWf)
+                else:
+                    return 1
+        return 0
 
     def createWorkflow(self, workflowDefinition):
         """ Create a new workflow according to the given definition string.
@@ -816,8 +835,7 @@ def stopWorkflow(eid, ticket):
                     server.deleteWorkflow(execution.workflowRunId)
                 workflow.status = "Deleted"
                 db.session.commit()
-            if server.isAlive():
-                # check if there are other executuion
+            if server.isAlive() and server.getWorkflowRunNumber() == 0:
                 serverManager.deleteWorkflow(server.workflowId, ticket)
         return True
     except Exception, e:
