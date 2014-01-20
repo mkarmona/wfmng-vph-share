@@ -614,11 +614,12 @@ class TavernaServer(db.Model):
                                 headers={
                                     "Content-type": "text/plain",
                                     'Authorization': 'Basic %s' % self.userAndPass
-                                }
+                                },
+                                verify=False
         )
-        if response.status_code == 200:
+        if response.status_code in [200,201,202]:
             return True
-        raise Exception('Error starting workflow on Taverna Server')
+        raise Exception('Error starting workflow on Taverna Server %s'%response.status_code )
 
     def setExpiry(self, wfRunId, expiry):
         """ set a new expiry date
@@ -636,9 +637,10 @@ class TavernaServer(db.Model):
         response = requests.put("%s/%s/expiry" % (self.url, wfRunId ), data=expiry,
                                 headers={
                                     "Content-type": "text/plain",
-                                    'Authorization': 'Basic %s' % self.userAndPass}
+                                    'Authorization': 'Basic %s' % self.userAndPass},
+                                verify=False
         )
-        if response.status_code == 200:
+        if response.status_code in [200,201,202]:
             return True
         return False
 
@@ -661,7 +663,8 @@ class TavernaServer(db.Model):
                                        headers={
                                            "Content-type": "text/plain",
                                            'Authorization': 'Basic %s' % self.userAndPass
-                                       }
+                                       },
+                                       verify=False
             )
 
             if response.status_code == 204:
@@ -829,16 +832,20 @@ def stopWorkflow(eid, ticket):
     try:
         if execution.status >=3:
             server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
-            if execution.status >= 5:
-                workflow = Workflow.query.filter_by(workflowRunId=execution.workflowRunId)
+            if server and execution.status >= 5:
+                workflow = Workflow.query.filter_by(workflowRunId=execution.workflowRunId).first()
                 if server.isWorkflowAlive(execution.workflowRunId):
                     server.deleteWorkflow(execution.workflowRunId)
-                workflow.status = "Deleted"
+                if workflow:
+                    workflow.status = "Deleted"
                 db.session.commit()
-            if server.isAlive() and server.getWorkflowRunNumber() == 0:
+            if server and server.isAlive() and server.getWorkflowRunNumber() == 0:
                 serverManager.deleteWorkflow(server.workflowId, ticket)
         return True
     except Exception, e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        print(exc_type, fname, exc_tb.tb_lineno)
         print e
         pass
     return False
@@ -848,12 +855,14 @@ def deleteExecution(eid, ticket):
     if stopWorkflow(eid, ticket):
         if execution.tavernaId != '':
             server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
-            db.session.delete(server)
-            db.session.commit()
+            if server:
+                db.session.delete(server)
+                db.session.commit()
         if execution.workflowRunId != '':
             workflow = Workflow.query.filter_by(workflowRunId=execution.workflowRunId).first()
-            db.session.delete(workflow)
-            db.session.commit()
+            if workflow:
+                db.session.delete(workflow)
+                db.session.commit()
         db.session.delete(execution)
         db.session.commit()
     return 'True'
@@ -879,18 +888,19 @@ def getWorkflowInformation(eid, ticket):
         ret['error_msg'] = execution.error_msg
         if execution.tavernaId:
             server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
-            if execution.workflowRunId:
+            if server and  execution.workflowRunId:
                 ret.update(server.getRunInformations(execution.workflowRunId))
                 if ret['status'] == 'Finished':
                     execution.status = 8
                     db.session.commit()
                     ret['executionstatus'] = execution.status
                     stopWorkflow(eid, ticket)
-            else:
+            elif server:
                 ret.update(server.getRunInformations(execution.workflowRunId))
 
         return ret
     except Exception, e:
+        print e
         return False
 
 def createOutputFolders(workflowId, inputDefinition, user, ticket):
