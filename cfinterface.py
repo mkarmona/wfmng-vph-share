@@ -28,16 +28,17 @@ class CloudFacadeInterface():
         """
         ret = {}
         try:
-            body = json.dumps({'name': "tavernaserverworkflow", 'type':  "workflow"})
+            body = json.dumps({'name': "Taverna Server Workflow", 'appliance_set_type':  "workflow"})
+            headers = {'Content-type': 'application/json', 'MI-TICKET': ticket}
             con = requests.post(
-                "%s/workflows" % self.CLOUDFACACE_URL,
-                auth=("", ticket),
+                "%s/appliance_sets" % self.CLOUDFACACE_URL,
+                headers=headers,
                 data = body, 
                 verify = False
             )
 
-            if con.status_code == 200:
-                return con.text
+            if con.status_code in [201, 200]:
+                return con.json()['appliance_set']['id']
 
         except Exception as e:
             print e
@@ -61,20 +62,22 @@ class CloudFacadeInterface():
                 Failure -- {'workflowId':'', 'error.description':'', error.code:''}
 
         """
+        ret = {}
         try:
+            ret["workflowId"] = workflowId
+            headers = { 'MI-TICKET': ticket}
             con = requests.delete(
-                "%s/workflows/%s" % (self.CLOUDFACACE_URL, workflowId),
-                auth=("", ticket),
+                "%s/appliance_sets/%s" % (self.CLOUDFACACE_URL, workflowId),
+                headers=headers,
                 verify = False
             )
-            if con.status_code in [200, 204]:
+            if con.status_code in [200, 201, 204]:
                 return True
 
         except Exception as e:
             print e
             pass
         return False
-
 
 
     def getAtomicServiceConfigId(self, atomicServiceId, ticket):
@@ -88,26 +91,25 @@ class CloudFacadeInterface():
         Returns:
             dictionary::
 
-                Success -- 'asConfigId'
-                Failure -- raise exception with message
+                Success -- {'asConfigId':'a string value'}
+                Failure -- {'asConfigId':'', 'error.description':'', error.code:''}
 
         """
+        ret = {}
         try:
+            headers = {'MI-TICKET': ticket}
             con = requests.get(
-                "%s/atomic_services/%s/configurations" % (self.CLOUDFACACE_URL, atomicServiceId),
-                auth=("", ticket),
-               verify = False
+                "%s/appliance_configuration_templates?appliance_type_id=%s" % (self.CLOUDFACACE_URL, atomicServiceId),
+                headers=headers,
+                verify = False
             )
-
-            if con.status_code in [200, 204]:
+            if con.status_code in [200, 201, 204]:
                 json = con.json()
-                return json[0]["id"]
+                return json['appliance_configuration_templates'][0]['id']
 
         except Exception as e:
             print e
             pass
-
-        raise Exception('Problem to get the atomic service config id')
 
 
 
@@ -124,23 +126,27 @@ class CloudFacadeInterface():
         Returns:
             dictionary::
 
-                Success -- True
-                Failure -- False
+                Success -- {'workflowId':'a string value'}
+                Failure -- {'workflowId':'', 'error.description':'', error.code:''}
 
         """
-
+        ret = {}
         try:
-            body = json.dumps({'asConfigId':  atomicServiceConfigId})
+            ret["workflowId"] = workflowId
+            ret["endpointId"] = ''
+            headers = {'Content-type': 'application/json', 'MI-TICKET': ticket}
+            body = json.dumps( { 'appliance': { 'appliance_set_id' : workflowId, 'configuration_template_id':  atomicServiceConfigId } } )
             con = requests.post(
-                "%s/workflows/%s/atomic_services" % (self.CLOUDFACACE_URL, workflowId),
-                auth=("", ticket),
+                "%s/appliances" % self.CLOUDFACACE_URL,
+                headers=headers,
                 data = body, 
                 verify = False
             )
 
-            if con.status_code in [200, 204]:
-                return True
-                
+            if con.status_code in [200, 201, 204]:
+                response = con.json()
+                return response['appliance']['appliance_configuration_instance_id']
+
         except Exception as e:
             print e
             pass
@@ -148,42 +154,48 @@ class CloudFacadeInterface():
 
 
 
-    def getASwebEndpoint(self, atomicServiceConfigId, workflowId, ticket):
-        """ Retrieves the web endpoint URL of an atomic service 
 
-        Arguments:
-           workflowId (string): a valid id for a workflow in the cloudfacade
+    # def getASwebEndpoint(self, atomicServiceConfigId, workflowId, ticket):
+        # """ Retrieves the web endpoint URL of an atomic service 
 
-           atomicServiceConfigId (string): a valid atomic service configuration id in the cloudfacade
+        # Arguments:
+           # workflowId (string): a valid id for a workflow in the cloudfacade
 
-           ticket (string): a valid authentication ticket
+           # atomicServiceConfigId (string): a valid atomic service configuration id in the cloudfacade
 
-        Returns:
-            dictionary::
+           # ticket (string): a valid authentication ticket
 
-                Success -- 'endpoint url'
-                Failure -- raise exception
+        # Returns:
+            # dictionary::
 
-        """
-        try:
-            url = "null"
-            while url.find("null")!=-1:
-                con = requests.get(
-                    "%s/workflows/%s/atomic_services/%s/redirections" % (self.CLOUDFACACE_URL, workflowId, atomicServiceConfigId ),
-                    auth=("", ticket),
-                    verify = False
-                    )
-                json = con.json()
-                if json["http"][0]["urls"][0].find("null")==-1:
-                    url = json["http"][0]["urls"][0]
+                # Success -- {'endpoint':'a string value'}
+                # Failure -- {'endpoint':'', 'error.description':'', error.code:''}
 
-            return url
+        # """
+        # ret = {}
+        # try:
+            # ret["workflowId"] = workflowId
+            # url = "null"
+            # while url.find("null")!=-1:
+                # con = requests.get(
+                    # "%s/workflows/%s/atomic_services/%s/redirections" % (self.CLOUDFACACE_URL, workflowId, atomicServiceConfigId ),
+                    # auth=("", ticket),
+                    # verify = False
+                    # )
+                # json = con.json()
+                # if json["http"][0]["urls"][0].find("null")==-1:
+                    # url = json["http"][0]["urls"][0]
 
-        except Exception as e:
-            print e
-            pass
+                # print con
 
-        raise Exception('Taverna Server boot error')
+            # ret["endpoint"] = url
+
+        # except Exception as e:
+            # ret["endpoint"] = ""
+            # ret["error.description"] = "Error getting Taverna Server endpoint in workflow " + workflowId
+            # ret["error.code"] = e
+
+        # return ret
 
 
 
@@ -206,6 +218,6 @@ class CloudFacadeInterface():
                 auth=(username, password),
                 verify = False
                 )
-            if con.status_code in [200, 204]:
+            if con.status_code in [200,201,204]:
                 return True
-        return False
+        return False;

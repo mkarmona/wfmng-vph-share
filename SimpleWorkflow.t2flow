@@ -1,20 +1,32 @@
-<workflow xmlns="http://taverna.sf.net/2008/xml/t2flow" version="1" producedBy="taverna-2.4.0"><dataflow id="50cd3b41-53d3-4d9f-bb51-48703774d869" role="top"><name>Workflow3</name><inputPorts><port><name>inputRingcutMesh</name><depth>0</depth><granularDepth>0</granularDepth><annotations /></port><port><name>inputNeckSelection</name><depth>0</depth><granularDepth>0</granularDepth><annotations /></port></inputPorts><outputPorts><port><name>Geometry_Descriptors_OutputDescriptors</name><annotations /></port></outputPorts><processors><processor><name>Geometry_Descriptors_VPHShare</name><inputPorts><port><name>inputFileNameAneurysm</name><depth>0</depth></port><port><name>inputFileNameDome</name><depth>0</depth></port></inputPorts><outputPorts><port><name>OutputDescriptors</name><depth>0</depth><granularDepth>0</granularDepth></port></outputPorts><annotations /><activities><activity><raven><group>org.vphshare.tavernaplugin</group><artifact>vphshare-plugin-activity</artifact><version>0.0.8-SNAPSHOT</version></raven><class>org.vphshare.tavernaplugin.VphShareActivity</class><inputMap><map from="inputFileNameDome" to="inputFileNameDome" /><map from="inputFileNameAneurysm" to="inputFileNameAneurysm" /></inputMap><outputMap><map from="OutputDescriptors" to="OutputDescriptors" /></outputMap><configBean encoding="xstream"><net.sf.taverna.t2.activities.wsdl.WSDLActivityConfigurationBean xmlns="">
-  <wsdl>https://vph.cyfronet.pl/cloudfacade/as/525bf2dd8664880a62025c12/endpoint/gimias/axis2/services/wsGimias?wsdl</wsdl>
+<workflow xmlns="http://taverna.sf.net/2008/xml/t2flow" version="1" producedBy="taverna-2.4.0"><dataflow id="985d6493-8703-414d-83ea-12755f6cf796" role="top"><name>Workflow3</name><inputPorts><port><name>inputRingcutMesh</name><depth>0</depth><granularDepth>0</granularDepth><annotations /></port><port><name>inputNeckSelection</name><depth>0</depth><granularDepth>0</granularDepth><annotations /></port></inputPorts><outputPorts><port><name>Geometry_Descriptors_OutputDescriptors</name><annotations /></port></outputPorts><processors><processor><name>Geometry_Descriptors_VPHShare</name><inputPorts><port><name>inputFileNameDome</name><depth>0</depth></port><port><name>inputFileNameAneurysm</name><depth>0</depth></port></inputPorts><outputPorts><port><name>OutputDescriptors</name><depth>0</depth><granularDepth>0</granularDepth></port></outputPorts><annotations /><activities><activity><raven><group>org.vphshare.tavernaplugin</group><artifact>vphshare-plugin-activity</artifact><version>0.0.12-SNAPSHOT</version></raven><class>org.vphshare.tavernaplugin.VphShareActivity</class><inputMap><map from="inputFileNameDome" to="inputFileNameDome" /><map from="inputFileNameAneurysm" to="inputFileNameAneurysm" /></inputMap><outputMap><map from="OutputDescriptors" to="OutputDescriptors" /></outputMap><configBean encoding="xstream"><org.vphshare.tavernaplugin.VphShareActivityConfigurationBean xmlns="">
+  <wsdl>http://vph.cyfronet.pl/api/v1/endpoints/71/descriptor</wsdl>
   <operation>Geometry_Descriptors</operation>
-</net.sf.taverna.t2.activities.wsdl.WSDLActivityConfigurationBean></configBean><annotations /></activity></activities><dispatchStack><dispatchLayer><raven><group>net.sf.taverna.t2.core</group><artifact>workflowmodel-impl</artifact><version>1.4</version></raven><class>net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.Parallelize</class><configBean encoding="xstream"><net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.ParallelizeConfig xmlns="">
+  <executeAsync>false</executeAsync>
+</org.vphshare.tavernaplugin.VphShareActivityConfigurationBean></configBean><annotations /></activity></activities><dispatchStack><dispatchLayer><raven><group>net.sf.taverna.t2.core</group><artifact>workflowmodel-impl</artifact><version>1.4</version></raven><class>net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.Parallelize</class><configBean encoding="xstream"><net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.ParallelizeConfig xmlns="">
   <maxJobs>1</maxJobs>
 </net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.ParallelizeConfig></configBean></dispatchLayer><dispatchLayer><raven><group>net.sf.taverna.t2.core</group><artifact>workflowmodel-impl</artifact><version>1.4</version></raven><class>net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.ErrorBounce</class><configBean encoding="xstream"><null xmlns="" /></configBean></dispatchLayer><dispatchLayer><raven><group>net.sf.taverna.t2.core</group><artifact>workflowmodel-impl</artifact><version>1.4</version></raven><class>net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.Failover</class><configBean encoding="xstream"><null xmlns="" /></configBean></dispatchLayer><dispatchLayer><raven><group>net.sf.taverna.t2.core</group><artifact>workflowmodel-impl</artifact><version>1.4</version></raven><class>net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.Retry</class><configBean encoding="xstream"><net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.RetryConfig xmlns="">
   <backoffFactor>1.0</backoffFactor>
   <initialDelay>1000</initialDelay>
   <maxDelay>5000</maxDelay>
   <maxRetries>0</maxRetries>
-</net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.RetryConfig></configBean></dispatchLayer><dispatchLayer><raven><group>net.sf.taverna.t2.core</group><artifact>workflowmodel-impl</artifact><version>1.4</version></raven><class>net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.Invoke</class><configBean encoding="xstream"><null xmlns="" /></configBean></dispatchLayer></dispatchStack><iterationStrategyStack><iteration><strategy><cross><port name="inputFileNameAneurysm" depth="0" /><port name="inputFileNameDome" depth="0" /></cross></strategy></iteration></iterationStrategyStack></processor></processors><conditions /><datalinks><datalink><sink type="processor"><processor>Geometry_Descriptors_VPHShare</processor><port>inputFileNameAneurysm</port></sink><source type="dataflow"><port>inputRingcutMesh</port></source></datalink><datalink><sink type="processor"><processor>Geometry_Descriptors_VPHShare</processor><port>inputFileNameDome</port></sink><source type="dataflow"><port>inputNeckSelection</port></source></datalink><datalink><sink type="dataflow"><port>Geometry_Descriptors_OutputDescriptors</port></sink><source type="processor"><processor>Geometry_Descriptors_VPHShare</processor><port>OutputDescriptors</port></source></datalink></datalinks><annotations><annotation_chain_2_2 encoding="xstream"><net.sf.taverna.t2.annotation.AnnotationChainImpl xmlns="">
+</net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.RetryConfig></configBean></dispatchLayer><dispatchLayer><raven><group>net.sf.taverna.t2.core</group><artifact>workflowmodel-impl</artifact><version>1.4</version></raven><class>net.sf.taverna.t2.workflowmodel.processor.dispatch.layers.Invoke</class><configBean encoding="xstream"><null xmlns="" /></configBean></dispatchLayer></dispatchStack><iterationStrategyStack><iteration><strategy><cross><port name="inputFileNameDome" depth="0" /><port name="inputFileNameAneurysm" depth="0" /></cross></strategy></iteration></iterationStrategyStack></processor></processors><conditions /><datalinks><datalink><sink type="processor"><processor>Geometry_Descriptors_VPHShare</processor><port>inputFileNameDome</port></sink><source type="dataflow"><port>inputNeckSelection</port></source></datalink><datalink><sink type="processor"><processor>Geometry_Descriptors_VPHShare</processor><port>inputFileNameAneurysm</port></sink><source type="dataflow"><port>inputRingcutMesh</port></source></datalink><datalink><sink type="dataflow"><port>Geometry_Descriptors_OutputDescriptors</port></sink><source type="processor"><processor>Geometry_Descriptors_VPHShare</processor><port>OutputDescriptors</port></source></datalink></datalinks><annotations><annotation_chain_2_2 encoding="xstream"><net.sf.taverna.t2.annotation.AnnotationChainImpl xmlns="">
   <annotationAssertions>
     <net.sf.taverna.t2.annotation.AnnotationAssertionImpl>
       <annotationBean class="net.sf.taverna.t2.annotation.annotationbeans.IdentificationAssertion">
-        <identification>50cd3b41-53d3-4d9f-bb51-48703774d869</identification>
+        <identification>985d6493-8703-414d-83ea-12755f6cf796</identification>
       </annotationBean>
-      <date>2013-10-14 15:20:31.111 UTC</date>
+      <date>2014-01-22 15:45:19.508 UTC</date>
+      <creators />
+      <curationEventList />
+    </net.sf.taverna.t2.annotation.AnnotationAssertionImpl>
+  </annotationAssertions>
+</net.sf.taverna.t2.annotation.AnnotationChainImpl></annotation_chain_2_2><annotation_chain_2_2 encoding="xstream"><net.sf.taverna.t2.annotation.AnnotationChainImpl xmlns="">
+  <annotationAssertions>
+    <net.sf.taverna.t2.annotation.AnnotationAssertionImpl>
+      <annotationBean class="net.sf.taverna.t2.annotation.annotationbeans.IdentificationAssertion">
+        <identification>1cb3631b-ffbe-44b8-a1f8-664569d68d32</identification>
+      </annotationBean>
+      <date>2014-01-21 16:13:19.927 UTC</date>
       <creators />
       <curationEventList />
     </net.sf.taverna.t2.annotation.AnnotationAssertionImpl>
@@ -34,9 +46,9 @@
   <annotationAssertions>
     <net.sf.taverna.t2.annotation.AnnotationAssertionImpl>
       <annotationBean class="net.sf.taverna.t2.annotation.annotationbeans.IdentificationAssertion">
-        <identification>b85ef8e9-ce58-4276-9d08-fc34c7ef9516</identification>
+        <identification>3b107df9-b1e1-4b4a-a55d-5a6cd0f44cbd</identification>
       </annotationBean>
-      <date>2013-08-02 13:05:35.231 UTC</date>
+      <date>2013-10-14 13:01:20.898 UTC</date>
       <creators />
       <curationEventList />
     </net.sf.taverna.t2.annotation.AnnotationAssertionImpl>
@@ -67,9 +79,20 @@
   <annotationAssertions>
     <net.sf.taverna.t2.annotation.AnnotationAssertionImpl>
       <annotationBean class="net.sf.taverna.t2.annotation.annotationbeans.IdentificationAssertion">
-        <identification>3b107df9-b1e1-4b4a-a55d-5a6cd0f44cbd</identification>
+        <identification>50cd3b41-53d3-4d9f-bb51-48703774d869</identification>
       </annotationBean>
-      <date>2013-10-14 13:01:20.898 UTC</date>
+      <date>2013-10-14 15:20:31.111 UTC</date>
+      <creators />
+      <curationEventList />
+    </net.sf.taverna.t2.annotation.AnnotationAssertionImpl>
+  </annotationAssertions>
+</net.sf.taverna.t2.annotation.AnnotationChainImpl></annotation_chain_2_2><annotation_chain_2_2 encoding="xstream"><net.sf.taverna.t2.annotation.AnnotationChainImpl xmlns="">
+  <annotationAssertions>
+    <net.sf.taverna.t2.annotation.AnnotationAssertionImpl>
+      <annotationBean class="net.sf.taverna.t2.annotation.annotationbeans.IdentificationAssertion">
+        <identification>b85ef8e9-ce58-4276-9d08-fc34c7ef9516</identification>
+      </annotationBean>
+      <date>2013-08-02 13:05:35.231 UTC</date>
       <creators />
       <curationEventList />
     </net.sf.taverna.t2.annotation.AnnotationAssertionImpl>
