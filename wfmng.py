@@ -30,7 +30,6 @@ except ImportError, e:
     from flask.ext.login import UserMixin, login_required
 
 from auth import extractUserFromTicket
-from taverna import TavernaServerConnector
 import requests
 
 # requirements for createOutputFolders
@@ -902,7 +901,7 @@ def getWorkflowInformation(eid, ticket):
                     db.session.commit()
                     ret['executionstatus'] = execution.status
                     stopWorkflow(eid, ticket)
-                if not ret['wfRunning'] and not ret['tavernaRunning']:
+                if execution.status == 7 and not ret['wfRunning'] and not ret['tavernaRunning'] :
                     execution.error = True
                     execution.error_msg = "Taverna process died"
                     db.session.commit()
