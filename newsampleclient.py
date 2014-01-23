@@ -9,6 +9,10 @@ passwd = ''
 # taverna 2.5.1 52d4130086648827c1000ad3
 #taverna secured 2.4.1 528a3b948664880b2b00f0cf
 #tavernaServerCloudId = "528a3b948664880b2b00f0cf"
+#tavernaServerCloudId = "40" # Taverna 2.5 in Prod
+#tavernaServerCloudId = "33" # Taverna 2.4 in Prod
+#tavernaServerCloudId = "5" # Taverna 2.4 in Devel
+
 tavernaServerCloudId = "40"
 
 ticket = getAuthTicket( user, passwd )

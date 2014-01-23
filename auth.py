@@ -16,7 +16,7 @@ from flask import request, Response
 
 
 AUTH_SERVER_URL = "http://devauth.biomedtown.org/"
-TKT_VALIDATION_SERVER_URL = "http://devel.vph-share.eu/"
+TKT_VALIDATION_SERVER_URL = "https://devel.vph-share.eu/"
 
 
 def checkAuthentication(username, password):
