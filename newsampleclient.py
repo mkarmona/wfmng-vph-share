@@ -4,11 +4,11 @@ import os
 from wfmng import *
 from auth import getAuthTicket
 import random
-user = 'asagli'
-passwd = 'selvagg.86'
+user = ''
+passwd = ''
 # taverna 2.5.1 52d4130086648827c1000ad3
 #taverna secured 2.4.1 528a3b948664880b2b00f0cf
-tavernaServerCloudId = "528a3b948664880b2b00f0cf"
+#tavernaServerCloudId = "528a3b948664880b2b00f0cf"
 tavernaServerCloudId = "40"
 
 ticket = getAuthTicket( user, passwd )
