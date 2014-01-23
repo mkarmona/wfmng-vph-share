@@ -742,19 +742,17 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
             atomicServiceConfigId = serverManager.getAtomicServiceConfigId(tavernaServerCloudId, ticket)
             if tavernaServerId and atomicServiceConfigId:
                 execution.status = 1
+                print "Taverna Server id %s, atomic config id  %s" %(str(tavernaServerId), str(atomicServiceConfigId))
                 db.session.commit()
-                if serverManager.startAtomicService(atomicServiceConfigId, tavernaServerId, ticket):
+                appliance_configuration_instance_id = serverManager.startAtomicService(atomicServiceConfigId, tavernaServerId, ticket)
+                if appliance_configuration_instance_id:
                     execution.status = 2
                     db.session.commit()
-                    endpoint = serverManager.getASwebEndpoint(atomicServiceConfigId, tavernaServerId, ticket)
+                    endpoint = app.config["CLOUDFACACE_PROXY_ENDPOINT"] %( str(tavernaServerId), str(appliance_configuration_instance_id))
                     if endpoint:
-                        #endpoint = endpoint[(endpoint.find("//") + 2):]  # remove http:// or https://
-                        #path = endpoint[(endpoint.find("/") + 1):]        # split path
-                        #endpoint = endpoint[:endpoint.find("/")]       # split server base URL
-                        if tavernaURL is "":
-                            endpoint = "%s/taverna-server/rest/runs" % endpoint.replace('http://','https://')
-                        else:
+                        if tavernaURL is not "":
                             endpoint = tavernaURL
+                        print "Taverna Server endpoint %s" % endpoint
                         # now it can be created Taverna server instance
                         server = TavernaServer(user['username'], endpoint, tavernaServerId, atomicServiceConfigId, tavernaServerCloudId)
                         execution.tavernaId = tavernaServerId
@@ -774,6 +772,7 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
         db.session.commit()
         # create worfklow object
         wfRunid = server.createWorkflow(workflowDefinition)
+        print "Workflow submited - workflow run id: %s" % str(wfRunid)
         execution.workflowRunId = wfRunid
         execution.status = 5
         db.session.commit()
@@ -803,6 +802,7 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
         else:
             inputDefinition = ret_o['inputDefinition']
             outputFolder = ret_o['outputFolder']
+            print "Outputfolder created: %s" % str(outputFolder)
         server.setWorkflowInputs(wfRunid, inputDefinition)
         server.setExpiry(wfRunid, (datetime.now()+timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S.000+01:00"))
         workflow = Workflow(user['username'], wfRunid, workflowTitle, outputFolder)
@@ -811,11 +811,14 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
         db.session.commit()
         server.startWorkflow(wfRunid)
         workflow.status = "Operating"
-
+        print "Workflow running"
         execution.status = 7
         db.session.commit()
-        alert_user_by_email(app.config['MAIL_FROM'], user['email'], '[VPH-Share] Workflow Started', 'mail.html',{'workflowId': wfRunid})
-        #now we pray to God that everything goes well
+        try:
+            alert_user_by_email(app.config['MAIL_FROM'], user['email'], '[VPH-Share] Workflow Started', 'mail.html',{'workflowId': wfRunid})
+            print "Mail Sent"
+        except Exception, e:
+            pass
     except Exception, e:
         execution.error = True
         execution.error_msg = str(e)
@@ -839,8 +842,12 @@ def stopWorkflow(eid, ticket):
                 if workflow:
                     workflow.status = "Deleted"
                 db.session.commit()
-            if server and server.isAlive() and server.getWorkflowRunNumber() == 0:
-                serverManager.deleteWorkflow(server.workflowId, ticket)
+            if server and server.getWorkflowRunNumber() == 0:
+                try:
+                    serverManager.deleteWorkflow(server.workflowId, ticket)
+                except Exception, e:
+                    print e
+                    pass
         return True
     except Exception, e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -894,6 +901,11 @@ def getWorkflowInformation(eid, ticket):
                     execution.status = 8
                     db.session.commit()
                     ret['executionstatus'] = execution.status
+                    stopWorkflow(eid, ticket)
+                if not ret['wfRunning'] and not ret['tavernaRunning']:
+                    execution.error = True
+                    execution.error_msg = "Taverna process died"
+                    db.session.commit()
                     stopWorkflow(eid, ticket)
             elif server:
                 ret.update(server.getRunInformations(execution.workflowRunId))
@@ -952,7 +964,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                     elementData = workflowFolder + splittedString[len(splittedString) - 1]
                     copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
                     copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                    inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData))
+                    inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData))
                     webdav.copy(copySource, copyDestination)
                 else:
                     for dataElementData in dataElement:

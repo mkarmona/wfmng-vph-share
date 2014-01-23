@@ -124,7 +124,7 @@
     <plugin>
         <provider>org.vphshare.tavernaplugin</provider>
         <identifier>org.vphshare.tavernaplugin.vphshare-plugin</identifier>
-        <version>0.0.11-SNAPSHOT</version>
+        <version>0.0.12-SNAPSHOT</version>
         <name>VPH-Share Taverna Plugin</name>
         <description/>
         <enabled>true</enabled>
@@ -136,7 +136,7 @@
             <dependency>
                 <groupId>org.vphshare.tavernaplugin</groupId>
                 <artifactId>vphshare-plugin-activity</artifactId>
-                <version>0.0.11-SNAPSHOT</version>
+                <version>0.0.12-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>junit</groupId>
@@ -151,7 +151,7 @@
             <dependency>
                 <groupId>org.vphshare.tavernaplugin</groupId>
                 <artifactId>vphshare-plugin-activity-ui</artifactId>
-                <version>0.0.11-SNAPSHOT</version>
+                <version>0.0.12-SNAPSHOT</version>
             </dependency>
         </profile>
         <compatibility>
