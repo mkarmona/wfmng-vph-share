@@ -145,7 +145,7 @@ class CloudFacadeInterface():
 
             if con.status_code in [200, 201, 204]:
                 response = con.json()
-                return response['appliance']['appliance_configuration_instance_id']
+                return response['appliance']['id']
 
         except Exception as e:
             print e
