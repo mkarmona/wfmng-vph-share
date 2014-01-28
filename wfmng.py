@@ -451,22 +451,34 @@ class TavernaServer(db.Model):
                 Success -- True
                 Failure -- Raise Exception with message
         """
+        try:
+            baclava = """<t2sr:upload xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/rest/" t2sr:name="baclava.xml">%s</t2sr:upload>""" % base64.b64encode(inputDefinition)
 
-        baclava = """<t2sr:upload xmlns:t2sr="http://ns.taverna.org.uk/2010/xml/server/rest/" t2sr:name="baclava.xml">%s</t2sr:upload>""" % base64.b64encode(
-            inputDefinition)
+            response = requests.post("%s/%s/wd" % (self.url, wfRunId), data=baclava,
+                                     headers={
+                                         "Content-type": "application/xml",
+                                         'Authorization': 'Basic %s' % self.userAndPass
+                                     },
+                                     allow_redirects=True,
+                                     verify=False)
 
-        response = requests.post("%s/%s/wd" % (self.url, wfRunId), data=baclava,
-                                 headers={
-                                     "Content-type": "application/xml",
-                                     'Authorization': 'Basic %s' % self.userAndPass
-                                 },
-                                 allow_redirects=True,
-                                 verify=False)
+            if response.status_code == 201:
+                # PUT baclava
+                response2 = requests.put("%s/%s/input/baclava" % (self.service_url, wfRunId ),
+                             headers={
+                                 "Content-type": "text/plain" ,
+                                 'Authorization' : 'Basic %s' %  self.userAndPass
+                             },
+                            data="baclava.xml",
+                            )
 
-        if response.status_code == 201:
-            return True
 
-        raise Exception("Workflow input setting failed " + response.text)
+                if response2.status_code == 200:
+                    return True
+
+            raise Exception("Workflow input setting failed " + response.text)
+        except Exception, e:
+            raise Exception("Workflow input setting failed " + response.text)
 
     def getWorkflowInputs(self, wfRunId):
         """
