@@ -464,7 +464,7 @@ class TavernaServer(db.Model):
 
             if response.status_code == 201:
                 # PUT baclava
-                response2 = requests.put("%s/%s/input/baclava" % (self.service_url, wfRunId ),
+                response2 = requests.put("%s/%s/input/baclava" % (self.url, wfRunId ),
                              headers={
                                  "Content-type": "text/plain" ,
                                  'Authorization' : 'Basic %s' %  self.userAndPass
@@ -478,6 +478,7 @@ class TavernaServer(db.Model):
 
             raise Exception("Workflow input setting failed " + response.text)
         except Exception, e:
+            print e
             raise Exception("Workflow input setting failed " + response.text)
 
     def getWorkflowInputs(self, wfRunId):
@@ -835,6 +836,10 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
         execution.error_msg = str(e)
         db.session.commit()
         stopWorkflow(eid, ticket)
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        print(exc_type, fname, exc_tb.tb_lineno)
+        print e 
         return 'False'
     return 'True'
 
