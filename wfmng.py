@@ -747,7 +747,7 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
                 if appliance_configuration_instance_id:
                     execution.status = 2
                     db.session.commit()
-                    endpoint = app.config["CLOUDFACACE_PROXY_ENDPOINT"] %( str(tavernaServerId), str(appliance_configuration_instance_id))
+                    endpoint = app.config["CLOUDFACACE_PROXY_ENDPOINT"] % str(appliance_configuration_instance_id)
                     if endpoint:
                         if tavernaURL is not "":
                             endpoint = tavernaURL
