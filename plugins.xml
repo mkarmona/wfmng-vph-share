@@ -11,8 +11,6 @@
             <repository>http://www.mygrid.org.uk/maven/repository/</repository>
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://ibiblio.lsu.edu/main/pub/packages/maven2/</repository>
-            <repository>http://ws.zones.apache.org/repository2/</repository>
             <repository>http://www.eviware.com/repository/maven2/</repository>
         </repositories>
         <profile>
@@ -44,11 +42,8 @@
             <repository>http://www.mygrid.org.uk/maven/repository/</repository>
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://ibiblio.lsu.edu/main/pub/packages/maven2/</repository>
-            <repository>http://ws.zones.apache.org/repository2/</repository>
             <repository>http://www.eviware.com/repository/maven2/</repository>
             <repository>http://openprovenance.org/java/maven-releases/</repository>
-            <repository>http://openjena.org/repo/</repository>
         </repositories>
         <profile>
             <dependency>
@@ -74,8 +69,6 @@
             <repository>http://www.mygrid.org.uk/maven/repository/</repository>
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://ibiblio.lsu.edu/main/pub/packages/maven2/</repository>
-            <repository>http://ws.zones.apache.org/repository2/</repository>
             <repository>http://www.eviware.com/repository/maven2/</repository>
         </repositories>
         <profile>
@@ -102,11 +95,8 @@
             <repository>http://www.mygrid.org.uk/maven/repository/</repository>
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://ibiblio.lsu.edu/main/pub/packages/maven2/</repository>
-            <repository>http://ws.zones.apache.org/repository2/</repository>
             <repository>http://www.eviware.com/repository/maven2/</repository>
-			<repository>http://openprovenance.org/java/maven-releases/</repository>
-            <repository>http://openjena.org/repo/</repository>			
+            <repository>http://openprovenance.org/java/maven-releases/</repository>
         </repositories>
         <profile>
             <dependency>
@@ -124,19 +114,19 @@
     <plugin>
         <provider>org.vphshare.tavernaplugin</provider>
         <identifier>org.vphshare.tavernaplugin.vphshare-plugin</identifier>
-        <version>0.0.12-SNAPSHOT</version>
+        <version>0.1.0-SNAPSHOT</version>
         <name>VPH-Share Taverna Plugin</name>
         <description/>
         <enabled>true</enabled>
         <repositories>
             <repository>http://repository.cistib.org/nexus/content/repositories/snapshots/</repository>
-			<repository>http://www.gimias.net/maven/repositories/releases/</repository>
+            <repository>http://www.gimias.net/maven/repositories/releases/</repository>
         </repositories>
         <profile>
             <dependency>
                 <groupId>org.vphshare.tavernaplugin</groupId>
                 <artifactId>vphshare-plugin-activity</artifactId>
-                <version>0.0.12-SNAPSHOT</version>
+                <version>0.1.0-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>junit</groupId>
@@ -151,7 +141,7 @@
             <dependency>
                 <groupId>org.vphshare.tavernaplugin</groupId>
                 <artifactId>vphshare-plugin-activity-ui</artifactId>
-                <version>0.0.12-SNAPSHOT</version>
+                <version>0.1.0-SNAPSHOT</version>
             </dependency>
         </profile>
         <compatibility>
