@@ -948,6 +948,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
     """
     LOBCDER_ROOT_IN_WEBDAV = app.config["LOBCDER_ROOT_IN_WEBDAV"]
     LOBCDER_ROOT_IN_FILESYSTEM = app.config["LOBCDER_ROOT_IN_FILESYSTEM"]
+    LOBCDER_PATH_PREFIX = app.config["LOBCDER_PATH_PREFIX"]
     namespaces = {'b': 'http://org.embl.ebi.escience/baclava/0.1alpha'}
     ret = {'workflowId': workflowId}
     ret['inputDefinition'] = ""
@@ -976,6 +977,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                 if type(dataElement) is not type(list):
                     elementData = dataElement['b:dataElementData']
                     decodedString = base64.b64decode(elementData)
+                    decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
                     splittedString = string.split(decodedString, '/')
                     elementData = workflowFolder + splittedString[len(splittedString) - 1]
                     copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
@@ -987,11 +989,11 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
                         elementData = dataElementData['b:dataElementData']
                         decodedString = base64.b64decode(elementData)
+                        decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
                         splittedString = string.split(decodedString, '/')
                         elementData = workflowFolder + splittedString[len(splittedString) - 1]
                         copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM,
-                                                         LOBCDER_ROOT_IN_WEBDAV)
+                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
                         inputDefinition.replace(dataElementData['b:dataElementData'], base64.b64encode(elementData))
                         webdav.copy(copySource, copyDestination)
             else:
@@ -1002,13 +1004,13 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
                         elementData = dataElement['b:dataElementData']
                         decodedString = base64.b64decode(elementData)
+                        decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
                         splittedString = string.split(decodedString, '/')
                         # include the index of the element on the folder name
                         destinationFolder = LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + dataElement.attrib['index']
                         if webdav.exists(destinationFolder) == False:
                             webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + dataElement.attrib['index'])
-                        elementData = workflowFolder + dataElement.attrib['index'] + '/' + splittedString[
-                            len(splittedString) - 1]
+                        elementData = workflowFolder + dataElement.attrib['index'] + '/' + splittedString[len(splittedString) - 1]
                         copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
                         copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM,
                                                          LOBCDER_ROOT_IN_WEBDAV)
