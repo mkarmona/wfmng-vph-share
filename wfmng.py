@@ -777,9 +777,17 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
                     raise Exception('Error starting Atomic service')
             else:
                 raise Exception('Error contacting cloud facade service')
+        else:
+            execution.status = 3
+            execution.tavernaId = server.workflowId
+            db.session.commit()
         #wait Taverna endpoint is ready
-        while server.isAlive()!= True:
+        timeout = 20
+        while server.isAlive() is not True and timeout > 0:
+            timeout -= 1
             time.sleep(5)
+        if timeout == 0:
+            raise Exception('Taverna Server is not reachable.')
         execution.status = 4
         db.session.commit()
         # create worfklow object
@@ -839,7 +847,7 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         print(exc_type, fname, exc_tb.tb_lineno)
-        print e 
+        print e
         return 'False'
     return 'True'
 
@@ -849,7 +857,7 @@ def stopWorkflow(eid, ticket):
     execution = Execution.query.filter_by(eid=eid).first()
 
     try:
-        if execution.status >=3:
+        if execution.status >= 3:
             server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
             if server and execution.status >= 5:
                 workflow = Workflow.query.filter_by(workflowRunId=execution.workflowRunId).first()
@@ -872,6 +880,7 @@ def stopWorkflow(eid, ticket):
         print e
         pass
     return False
+
 
 def deleteExecution(eid, ticket):
     execution = Execution.query.filter_by(eid=eid).first()
@@ -1046,4 +1055,4 @@ if __name__ == "__main__":
         app_options["use_debugger"] = False
         app_options["use_reloader"] = False
 
-    app.run(**app_options)
+    app.run(threaded=True, **app_options)
