@@ -745,7 +745,8 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
     execution = Execution(user['username'], eid)
     db.session.add(execution)
     db.session.commit()
-    server = TavernaServer.query.filter_by(username=user['username'], tavernaServerCloudId=tavernaServerCloudId).first()
+    #Now we don't have a stable taverna server then we have to create a new one for every execution
+    server = TavernaServer.query.filter_by(username=user['username'], workflowId=execution.tavernaId, tavernaServerCloudId=tavernaServerCloudId).first()
     # remeber try execept
     try:
         if server is None:
@@ -854,9 +855,8 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
 
 def stopWorkflow(eid, ticket):
 
-    execution = Execution.query.filter_by(eid=eid).first()
-
     try:
+        execution = Execution.query.filter_by(eid=eid).first()
         if execution.status >= 3:
             server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
             if server and execution.status >= 5:
