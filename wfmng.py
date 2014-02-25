@@ -670,7 +670,6 @@ class TavernaServer(db.Model):
 
         """
         if self.isWorkflowAlive(wfRunId):
-
             response = requests.delete("%s/%s" % (self.url, wfRunId),
                                        headers={
                                            "Content-type": "text/plain",
@@ -792,14 +791,17 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
         # pluginDefinition (string): the plugin specification file string buffer
         pluginDefinition = open(os.path.join(abs_path, 'plugins.xml'), 'r').read()
         # certificateFileName (string): filename of the certificate of the cloud provider
-        certificateFileName = "vph.cyfronet.crt"
-        certificateContent = open(os.path.join(abs_path, certificateFileName), 'r').read()
+        certificateFileNameCyfronet = "vph.cyfronet.crt"
+        certificateContentCyfronet = open(os.path.join(abs_path, certificateFileNameCyfronet), 'r').read()
+        certificateFileNamePortal = "portal.vph-share.eu.crt"
+        certificateContentPortal = open(os.path.join(abs_path, certificateFileNamePortal), 'r').read()
         # pluginPropertiesFileName (string): filename of the plugin properties file
         pluginPropertiesFileName = "vphshare.properties"
         ## set up the ticket in the plugin configuration
         server.setTicket(wfRunid, ticket)
         # set up cloud provider identity certificate
-        server.setTrustedIdentity(wfRunid, certificateFileName, certificateContent)
+        server.setTrustedIdentity(wfRunid, certificateFileNameCyfronet, certificateContentCyfronet)
+        server.setTrustedIdentity(wfRunid, certificateFileNamePortal, certificateContentPortal)
         # set up plugins
         server.setPlugins(wfRunid, pluginDefinition)
         if os.path.exists(os.path.join(abs_path, pluginPropertiesFileName)):
