@@ -985,48 +985,35 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
             if partialOrder is None:
                 dataElement = myGridDataDocument.get('b:dataElement', None)
                 copySource = copyDestination = ''
-                if type(dataElement) is not type(list):
-                    elementData = dataElement['b:dataElementData']
-                    decodedString = base64.b64decode(elementData)
-                    decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
-                    splittedString = string.split(decodedString, '/')
-                    elementData = workflowFolder + splittedString[len(splittedString) - 1]
-                    copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                    copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                    inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData))
-                    webdav.copy(copySource, copyDestination)
-                else:
-                    for dataElementData in dataElement:
-                        # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
-                        elementData = dataElementData['b:dataElementData']
-                        decodedString = base64.b64decode(elementData)
-                        decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
-                        splittedString = string.split(decodedString, '/')
-                        elementData = workflowFolder + splittedString[len(splittedString) - 1]
-                        copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                        inputDefinition.replace(dataElementData['b:dataElementData'], base64.b64encode(elementData))
-                        webdav.copy(copySource, copyDestination)
+                elementData = dataElement['b:dataElementData']
+                decodedString = base64.b64decode(elementData)
+                decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
+                splittedString = string.split(decodedString, '/')
+                elementData = workflowFolder + splittedString[len(splittedString) - 1]
+                copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
+                copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
+                inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData), 1)
+                webdav.copy(copySource, copyDestination)
             else:
             # if partialOrder tag is found, the input corresponds to a list of values
-                if 'type' in partialOrder and partialOrder['type'] == "list":
+                if u'@type' in partialOrder and partialOrder[u'@type'] == "list":
                     itemList = partialOrder.get('b:itemList', None)
-                    for dataElement in itemList:
+                    for dataElement in itemList.items()[0][1]:
                         # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
                         elementData = dataElement['b:dataElementData']
                         decodedString = base64.b64decode(elementData)
                         decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
                         splittedString = string.split(decodedString, '/')
+                        index = dataElement[u'@index']
                         # include the index of the element on the folder name
-                        destinationFolder = LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + dataElement.attrib['index']
+                        destinationFolder = LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + index
                         if webdav.exists(destinationFolder) == False:
-                            webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + dataElement.attrib['index'])
-                        elementData = workflowFolder + dataElement.attrib['index'] + '/' + splittedString[len(splittedString) - 1]
+                            webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + index)
+                        elementData = workflowFolder + index + '/' + splittedString[len(splittedString) - 1]
                         copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM,
-                                                         LOBCDER_ROOT_IN_WEBDAV)
+                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
                         webdav.copy(copySource, copyDestination)
-                        inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData))
+                        inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData), 1)
         ret['inputDefinition'] = inputDefinition
         ret['outputFolder'] = '/%s/' % workflowId
     except Exception as e:
