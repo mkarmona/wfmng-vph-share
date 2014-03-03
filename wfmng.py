@@ -731,10 +731,55 @@ def notify_user_by_mi():
     send a notification message that will be shown to the Master interface
     """
 
+def submition_work_around(execution, server, ticket, tavernaURL, workflowDefinition):
+
+    workflow_worker_built_failed = True
+    while workflow_worker_built_failed:
+        serverManager.deleteWorkflow(server.workflowId, ticket)
+        tavernaServerId = serverManager.createWorkflow(ticket)
+        atomicServiceConfigId = serverManager.getAtomicServiceConfigId(server.tavernaServerCloudId, ticket)
+        if tavernaServerId and atomicServiceConfigId:
+            print "retry::Taverna Server id %s, atomic config id  %s" %(str(tavernaServerId), str(atomicServiceConfigId))
+            appliance_configuration_instance_id = serverManager.startAtomicService(atomicServiceConfigId, tavernaServerId, ticket)
+            if appliance_configuration_instance_id:
+                endpoint = app.config["CLOUDFACACE_PROXY_ENDPOINT"] % str(appliance_configuration_instance_id)
+                if endpoint:
+                    if tavernaURL is not "":
+                        endpoint = tavernaURL
+                    print "retry::Taverna Server endpoint %s" % endpoint
+                    # now it can be created Taverna server instance
+                    server.url = endpoint
+                    server.workflowId = tavernaServerId
+                    server.asConfigId = atomicServiceConfigId
+                    execution.tavernaId = tavernaServerId
+                    db.session.commit()
+                else:
+                    raise Exception('Error booting Taverna server')
+            else:
+                raise Exception('Error starting Atomic service')
+        else:
+            raise Exception('Error contacting cloud facade service')
+        timeout = 20
+        while server.isAlive() is not True and timeout > 0:
+            timeout -= 1
+            time.sleep(5)
+        if timeout == 0:
+            raise Exception('Taverna Server is not reachable.')
+
+        try:
+            return server.createWorkflow(workflowDefinition)
+        except Exception, e:
+            ## here start the implementation of the workaround
+            # the workaround restart anytime the Taverna Server in the cloud
+            # until the WM is not able to submit the workflow.
+            workflow_worker_built_failed = (e.message=="Submitting workflow failed failed to build workflow run worker")
+    raise Exception("Submitting workflow failed")
+
+
 
 ############################################################################
 # xmlrpc methods
-def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowDefinition, inputDefinition, tavernaURL=""):
+def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowDefinition, inputDefinition, tavernaURL="", submitionWorkAround = False):
     user = extractUserFromTicket(ticket)
 
     execution = Execution.query.filter_by(username=user['username'], eid=eid).first()
@@ -745,7 +790,7 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
     db.session.add(execution)
     db.session.commit()
     #Now we don't have a stable taverna server then we have to create a new one for every execution
-    server = TavernaServer.query.filter_by(username=user['username'], workflowId=execution.tavernaId, tavernaServerCloudId=tavernaServerCloudId).first()
+    server = TavernaServer.query.filter_by(username=user['username'], tavernaServerCloudId=tavernaServerCloudId).first()
     # remeber try execept
     try:
         if server is None:
@@ -791,7 +836,18 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
         execution.status = 4
         db.session.commit()
         # create worfklow object
-        wfRunid = server.createWorkflow(workflowDefinition)
+        try:
+            wfRunid = server.createWorkflow(workflowDefinition)
+        except Exception, e:
+            ## here start the implementation of the workaround
+            # the workaround restart anytime the Taverna Server in the cloud
+            # until the WM is not able to submit the workflow.
+            workflow_worker_built_failed = (e.message=="Submitting workflow failed failed to build workflow run worker")
+            if workflow_worker_built_failed and submitionWorkAround:
+                wfRunid = submition_work_around(execution, server, ticket, tavernaURL, workflowDefinition)
+            else:
+                raise Exception(e)
+            pass
         print "Workflow submited - workflow run id: %s" % str(wfRunid)
         execution.workflowRunId = wfRunid
         execution.status = 5
