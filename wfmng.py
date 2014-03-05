@@ -559,7 +559,8 @@ class TavernaServer(db.Model):
         if wfRunId:
             wfJob = Workflow.query.filter_by(workflowRunId=wfRunId).first()
             ret['wfRunning'] = self.isWorkflowAlive(wfRunId)
-            ret['outputfolder'] = wfJob.outputfolder
+            if wfJob:
+                ret['outputfolder'] = wfJob.outputfolder
         else:
             ret['wfRunning'] = False
             return ret
