@@ -963,10 +963,12 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
     namespaces = {'b': 'http://org.embl.ebi.escience/baclava/0.1alpha'}
     ret = {'workflowId': workflowId}
     ret['inputDefinition'] = ""
+    baclavaContent = xmltodict.parse(inputDefinition.encode('utf-8'))
+    if ('b:dataThingMap' not in baclavaContent) or ('b:dataThing' not in baclavaContent['b:dataThingMap']):
+        raise Exception('No input found in input definition')
     try:
         # open LOBCDER connection
-        webdav = easywebdav.connect(app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username=user,
-                                    password=ticket)
+        webdav = easywebdav.connect(app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username=user, password=ticket)
         workflowFolder = LOBCDER_ROOT_IN_FILESYSTEM + workflowId + '/'
         try:
             if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
@@ -976,8 +978,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
             # even after the directory is successfully created
             if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
                 raise e
-            # parse input definition
-        baclavaContent = xmltodict.parse(inputDefinition.encode('utf-8'))
+        # parse input definition
         for dataThing in baclavaContent['b:dataThingMap']['b:dataThing']:
             myGridDataDocument = dataThing.get('b:myGridDataDocument', None)
             partialOrder = myGridDataDocument.get('b:partialOrder', None)
