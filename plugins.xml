@@ -120,7 +120,7 @@
         <enabled>true</enabled>
         <repositories>
             <repository>http://repository.cistib.org/nexus/content/repositories/snapshots/</repository>
-            <repository>http://www.gimias.net/maven/repositories/releases/</repository>
+            <repository>http://www.gimias.org/maven/repositories/releases/</repository>
         </repositories>
         <profile>
             <dependency>
