@@ -1026,7 +1026,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
     try:
         # open LOBCDER connection
         webdav = easywebdav.connect(app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username=user, password=ticket)
-        workflowFolder = LOBCDER_ROOT_IN_FILESYSTEM + workflowId + '/'
+        workflowFolder = LOBCDER_ROOT_IN_FILESYSTEM + workflowId
         try:
             if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
                 webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId)
@@ -1046,12 +1046,17 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                 elementData = dataElement['b:dataElementData']
                 decodedString = base64.b64decode(elementData)
                 decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
-                splittedString = string.split(decodedString, '/')
-                elementData = workflowFolder + splittedString[len(splittedString) - 1]
-                copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData), 1)
-                webdav.copy(copySource, copyDestination)
+                if "." in decodedString: # temporary solution to identify a file 
+                    decodedString = string.replace(decodedString,"VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
+                    splittedString = string.split(decodedString, '/')
+                    elementData = workflowFolder + '/' + splittedString[len(splittedString) - 1]
+                    copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
+                    copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
+                    inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData), 1)
+                    webdav.copy(copySource, copyDestination)
+                elif "VPHSHARE_RUN_OUTPUT_FOLDER" in decodedString: 
+                    decodedString = string.replace(decodedString,"VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
+                    inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(decodedString), 1)                
             else:
             # if partialOrder tag is found, the input corresponds to a list of values
                 if u'@type' in partialOrder and partialOrder[u'@type'] == "list":
@@ -1061,17 +1066,23 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         elementData = dataElement['b:dataElementData']
                         decodedString = base64.b64decode(elementData)
                         decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
-                        splittedString = string.split(decodedString, '/')
-                        index = dataElement[u'@index']
-                        # include the index of the element on the folder name
-                        destinationFolder = LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + index
-                        if webdav.exists(destinationFolder) == False:
-                            webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + index)
-                        elementData = workflowFolder + index + '/' + splittedString[len(splittedString) - 1]
-                        copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                        copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                        webdav.copy(copySource, copyDestination)
-                        inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData), 1)
+                        if "." in decodedString: # temporary solution to identify a file 
+                            decodedString = string.replace(decodedString,"VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
+                            splittedString = string.split(decodedString, '/')
+                            index = dataElement[u'@index']
+                            # include the index of the element on the folder name
+                            destinationFolder = LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + index
+                            if webdav.exists(destinationFolder) == False:
+                                webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + index)
+                            elementData = workflowFolder + '/' + index + '/' + splittedString[len(splittedString) - 1]
+                            copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
+                            copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
+                            webdav.copy(copySource, copyDestination)
+                            inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(elementData), 1)
+                        elif "VPHSHARE_RUN_OUTPUT_FOLDER" in decodedString: 
+                            index = dataElement[u'@index']
+                            decodedString = string.replace(decodedString,"VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder + '/' + index)
+                            inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(decodedString), 1)  
         ret['inputDefinition'] = inputDefinition
         ret['outputFolder'] = '/%s/' % workflowId
     except Exception as e:
