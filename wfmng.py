@@ -1017,6 +1017,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
     LOBCDER_ROOT_IN_WEBDAV = app.config["LOBCDER_ROOT_IN_WEBDAV"]
     LOBCDER_ROOT_IN_FILESYSTEM = app.config["LOBCDER_ROOT_IN_FILESYSTEM"]
     LOBCDER_PATH_PREFIX = app.config["LOBCDER_PATH_PREFIX"]
+    WORKFLOWS_OUTPUT_FOLDER = app.config["WORKFLOWS_OUTPUT_FOLDER"]
     namespaces = {'b': 'http://org.embl.ebi.escience/baclava/0.1alpha'}
     ret = {'workflowId': workflowId}
     ret['inputDefinition'] = ""
@@ -1026,18 +1027,22 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
     try:
         # open LOBCDER connection
         webdav = easywebdav.connect(app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username=user, password=ticket)
-        workflowFolder = LOBCDER_ROOT_IN_FILESYSTEM + workflowId
+        workflowFolder = LOBCDER_ROOT_IN_FILESYSTEM + WORKFLOWS_OUTPUT_FOLDER + workflowId
         try:
-            if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
-                webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId)
+            if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + WORKFLOWS_OUTPUT_FOLDER + workflowId) == False:
+                webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + WORKFLOWS_OUTPUT_FOLDER + workflowId)
         except Exception as e:
             # This is done to skip an erratic behaviour of the webdav, that is triggering an exception
             # even after the directory is successfully created
-            if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + workflowId) == False:
+            if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + WORKFLOWS_OUTPUT_FOLDER + workflowId) == False:
                 raise e
         # parse input definition
         for dataThing in baclavaContent['b:dataThingMap']['b:dataThing']:
-            myGridDataDocument = dataThing.get('b:myGridDataDocument', None)
+            if dataThing=='@key': # special treatment for input definitions that specify only one input port
+                myGridDataDocument = baclavaContent['b:dataThingMap']['b:dataThing']['b:myGridDataDocument']
+                continue
+            elif dataThing<>'b:myGridDataDocument' :
+                myGridDataDocument = dataThing.get('b:myGridDataDocument', None)
             partialOrder = myGridDataDocument.get('b:partialOrder', None)
             # if partialOrder tag is not found, the input corresponds to a single value
             if partialOrder is None:
@@ -1090,7 +1095,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                                 webdav.mkdirs(outputfolder)
                         inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(decodedString), 1)  
         ret['inputDefinition'] = inputDefinition
-        ret['outputFolder'] = '/%s/' % workflowId
+        ret['outputFolder'] = '/%s%s' % (WORKFLOWS_OUTPUT_FOLDER, workflowId)
     except Exception as e:
         raise Exception('Error creating output folder')
 
