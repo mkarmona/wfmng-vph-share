@@ -1079,9 +1079,9 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                             splittedString = string.split(decodedString, '/')
                             index = dataElement[u'@index']
                             # include the index of the element on the folder name
-                            destinationFolder = LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + index
+                            destinationFolder = LOBCDER_ROOT_IN_WEBDAV + WORKFLOWS_OUTPUT_FOLDER + workflowId + '/' + index
                             if webdav.exists(destinationFolder) == False:
-                                webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + workflowId + '/' + index)
+                                webdav.mkdir(LOBCDER_ROOT_IN_WEBDAV + WORKFLOWS_OUTPUT_FOLDER + workflowId + '/' + index)
                             elementData = workflowFolder + '/' + index + '/' + splittedString[len(splittedString) - 1]
                             copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
                             copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
