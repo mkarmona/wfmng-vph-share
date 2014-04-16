@@ -10,7 +10,7 @@ import smtplib
 from datetime import datetime, timedelta
 import argparse
 from email.mime.text import MIMEText
-
+from raven.contrib.flask import Sentry
 from flask import Flask, render_template, request
 
 try:
@@ -760,7 +760,7 @@ def submition_work_around(execution, server, ticket, tavernaURL, workflowDefinit
                 raise Exception('Error starting Atomic service')
         else:
             raise Exception('Error contacting cloud facade service')
-        timeout = 20
+        timeout = 50
         while server.isAlive() is not True and timeout > 0:
             timeout -= 1
             time.sleep(5)
@@ -828,7 +828,7 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
             execution.tavernaId = server.workflowId
             db.session.commit()
         #wait Taverna endpoint is ready
-        timeout = 20
+        timeout = 50
         while server.isAlive() is not True and timeout > 0:
             timeout -= 1
             time.sleep(5)
