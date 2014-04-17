@@ -928,7 +928,7 @@ def stopWorkflow(eid, ticket):
                 try:
                     serverManager.deleteWorkflow(server.workflowId, ticket)
                 except Exception, e:
-                    print e
+                    sentry.captureException()
                     pass
         return True
     except Exception, e:
