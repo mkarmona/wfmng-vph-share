@@ -43,7 +43,6 @@ import time
 ############################################################################
 # create and configure main application
 app = Flask(__name__)
-
 # read configuration file
 if os.path.exists("local.wfmng.cfg"):
     app.config.from_pyfile("local.wfmng.cfg")
@@ -65,7 +64,7 @@ serverManager = CloudFacadeInterface(app.config["CLOUDFACACE_URL"])
 ## SQLAlchemy Database Connector
 db = SQLAlchemy(app)
 
-
+sentry = Sentry(app, dsn=app.config["SENTRY_DNS"])
 class Workflow(db.Model):
     """
         This class represents a Workfow into the database
@@ -773,6 +772,7 @@ def submition_work_around(execution, server, ticket, tavernaURL, workflowDefinit
             ## here start the implementation of the workaround
             # the workaround restart anytime the Taverna Server in the cloud
             # until the WM is not able to submit the workflow.
+            sentry.captureException()
             workflow_worker_built_failed = (e.message=="Submitting workflow failed failed to build workflow run worker")
     raise Exception("Submitting workflow failed")
 
@@ -900,14 +900,13 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
         except Exception, e:
             pass
     except Exception, e:
+        sentry.captureException()
         execution.error = True
         execution.error_msg = str(e)
         db.session.commit()
         stopWorkflow(eid, ticket)
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        print(exc_type, fname, exc_tb.tb_lineno)
-        print e
         return 'False'
     return 'True'
 
@@ -935,27 +934,30 @@ def stopWorkflow(eid, ticket):
     except Exception, e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        print(exc_type, fname, exc_tb.tb_lineno)
-        print e
+        sentry.captureException()
         pass
     return False
 
 
 def deleteExecution(eid, ticket):
-    execution = Execution.query.filter_by(eid=eid).first()
-    if stopWorkflow(eid, ticket):
-        if execution.tavernaId != '':
-            server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
-            if server:
-                db.session.delete(server)
-                db.session.commit()
-        if execution.workflowRunId != '':
-            workflow = Workflow.query.filter_by(workflowRunId=execution.workflowRunId).first()
-            if workflow:
-                db.session.delete(workflow)
-                db.session.commit()
-        db.session.delete(execution)
-        db.session.commit()
+    try:
+        execution = Execution.query.filter_by(eid=eid).first()
+        if stopWorkflow(eid, ticket):
+            if execution.tavernaId != '':
+                server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
+                if server:
+                    db.session.delete(server)
+                    db.session.commit()
+            if execution.workflowRunId != '':
+                workflow = Workflow.query.filter_by(workflowRunId=execution.workflowRunId).first()
+                if workflow:
+                    db.session.delete(workflow)
+                    db.session.commit()
+            db.session.delete(execution)
+            db.session.commit()
+    except Exception, e:
+        sentry.captureException()
+        return 'False'
     return 'True'
 
 
@@ -996,7 +998,7 @@ def getWorkflowInformation(eid, ticket):
 
         return ret
     except Exception, e:
-        print e
+        sentry.captureException()
         return False
 
 def createOutputFolders(workflowId, inputDefinition, user, ticket):
@@ -1097,8 +1099,8 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
         ret['inputDefinition'] = inputDefinition
         ret['outputFolder'] = '/%s%s' % (WORKFLOWS_OUTPUT_FOLDER, workflowId)
     except Exception as e:
+        sentry.captureException()
         raise Exception('Error creating output folder')
-
     return ret
 
 ############################################################################
