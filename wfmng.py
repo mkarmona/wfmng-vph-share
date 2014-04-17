@@ -976,6 +976,8 @@ def getWorkflowInformation(eid, ticket):
     try:
         ret = {'executionstatus':'', 'error': '', 'error_msg': '', 'status': '', 'createTime': '', 'startTime': '', 'finishTime': '', 'expiry': '', 'exitcode': '', 'stdout': '', 'stderr': '', 'outputfolder': '', 'endpoint': '', 'workflowId': '', 'asConfigId': '', 'tavernaRunning': '', 'owner': '', 'wfRunning': ''}
         execution = Execution.query.filter_by(eid=eid).first()
+        if execution == None:
+            False
         ret['executionstatus'] = execution.status
         ret['error'] = execution.error
         ret['error_msg'] = execution.error_msg
