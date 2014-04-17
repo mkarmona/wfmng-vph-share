@@ -14,10 +14,7 @@ except ImportError:
 from functools import wraps
 from flask import request, Response
 
-
-AUTH_SERVER_URL = "http://devauth.biomedtown.org/"
-TKT_VALIDATION_SERVER_URL = "https://devel.vph-share.eu/"
-
+MI_API_URL = "https://portal.vph-share.eu/api/"
 
 def checkAuthentication(username, password):
     """ This function is called to check if a username password combination is valid.
@@ -50,7 +47,7 @@ def getAuthTicket(username, password):
 
     """
 
-    resp = urllib2.urlopen('%s/user_login?domain=VPHSHARE&username=%s&password=%s' % (AUTH_SERVER_URL, username, password))
+    resp = urllib2.urlopen('%s/auth/user_login?domain=VPHSHARE&username=%s&password=%s' % (MI_API_URL, username, password))
     ticket = resp.read()
 
     if resp.code != 200:
@@ -70,7 +67,7 @@ def extractUserFromTicket(ticket):
 
     """
     try:
-        resp = urllib2.urlopen('%svalidatetkt/?ticket=%s' % (TKT_VALIDATION_SERVER_URL, ticket))
+        resp = urllib2.urlopen('%s/validatetkt/?ticket=%s' % (MI_API_URL, ticket))
         user_dict = json.loads(resp.read())
         return user_dict
     except BaseException, e:
