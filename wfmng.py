@@ -1030,7 +1030,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
         raise Exception('No input found in input definition')
     try:
         # open LOBCDER connection
-        webdav = easywebdav.connect(app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username=user, password=ticket)
+        webdav = easywebdav.connect(app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username=user, password=ticket, protocol = 'https')
         workflowFolder = LOBCDER_ROOT_IN_FILESYSTEM + WORKFLOWS_OUTPUT_FOLDER + workflowId
         try:
             if webdav.exists(LOBCDER_ROOT_IN_WEBDAV + WORKFLOWS_OUTPUT_FOLDER + workflowId) == False:
