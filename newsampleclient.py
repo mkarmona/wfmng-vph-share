@@ -7,7 +7,7 @@ import random
 user = ''
 passwd = ''
 
-tavernaServerCloudId = "223" 
+tavernaServerCloudId = "245"
 
 ticket = getAuthTicket( user, passwd )
 

@@ -213,6 +213,7 @@ class TavernaServer(db.Model):
     asConfigId = db.Column(db.String(80), primary_key=True)
     userAndPass = db.Column(db.String(80), primary_key=True)
     tavernaServerCloudId = db.Column(db.String(80), primary_key=True)
+    valid = db.Column(db.Boolean())
 
     def __init__(self, username, endpoint, workflowId, asConfigId, tavernaServerCloudId , tavernaUser='taverna', tavernaPass='taverna'):
 
@@ -222,6 +223,7 @@ class TavernaServer(db.Model):
         self.asConfigId = asConfigId
         self.userAndPass = base64.b64encode(tavernaUser + ":" + tavernaPass)
         self.tavernaServerCloudId = tavernaServerCloudId
+        self.valid = False
 
     def isAlive(self):
         response = requests.get(self.url,
@@ -791,7 +793,7 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
     db.session.add(execution)
     db.session.commit()
     #Now we don't have a stable taverna server then we have to create a new one for every execution
-    server = TavernaServer.query.filter_by(username=user['username'], tavernaServerCloudId=tavernaServerCloudId).first()
+    server = TavernaServer.query.filter_by(username=user['username'], tavernaServerCloudId=tavernaServerCloudId, valid=True).first()
     # remeber try execept
     try:
         if server is None:
@@ -849,6 +851,8 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
             else:
                 raise Exception(e)
             pass
+        server.valid = True #mark the Taverna server as valid so other execution can user the same server
+        db.session.commit()
         print "Workflow submited - workflow run id: %s" % str(wfRunid)
         execution.workflowRunId = wfRunid
         execution.status = 5
@@ -924,7 +928,7 @@ def stopWorkflow(eid, ticket):
                 if workflow:
                     workflow.status = "Deleted"
                 db.session.commit()
-            if server and server.getWorkflowRunNumber() == 0:
+            if server and Execution.query.filter_by(tavernaId=server.workflowId).count() == 1:
                 try:
                     serverManager.deleteWorkflow(server.workflowId, ticket)
                 except Exception, e:
@@ -945,9 +949,11 @@ def deleteExecution(eid, ticket):
         if stopWorkflow(eid, ticket):
             if execution.tavernaId != '':
                 server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
-                if server:
+                if server and Execution.query.filter_by(tavernaId=server.workflowId).count() == 1:
                     db.session.delete(server)
                     db.session.commit()
+                execution.tavernaId = ''
+                db.session.commit()
             if execution.workflowRunId != '':
                 workflow = Workflow.query.filter_by(workflowRunId=execution.workflowRunId).first()
                 if workflow:
