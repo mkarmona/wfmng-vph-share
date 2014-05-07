@@ -738,6 +738,8 @@ def submition_work_around(execution, server, ticket, tavernaURL, workflowDefinit
     workflow_worker_built_failed = True
     while workflow_worker_built_failed:
         serverManager.deleteWorkflow(server.workflowId, ticket)
+        server.valid = False
+        db.session.commit()
         tavernaServerId = serverManager.createWorkflow(ticket)
         atomicServiceConfigId = serverManager.getAtomicServiceConfigId(server.tavernaServerCloudId, ticket)
         if tavernaServerId and atomicServiceConfigId:
@@ -796,7 +798,7 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
     server = TavernaServer.query.filter_by(username=user['username'], tavernaServerCloudId=tavernaServerCloudId, valid=True).first()
     # remeber try execept
     try:
-        if server is None:
+        if server is None or server.isAlive() is not True:
             #if the server is not avaible ask to the cloud to start a new one
             tavernaServerId = serverManager.createWorkflow(ticket)
             atomicServiceConfigId = serverManager.getAtomicServiceConfigId(tavernaServerCloudId, ticket)
@@ -928,9 +930,11 @@ def stopWorkflow(eid, ticket):
                 if workflow:
                     workflow.status = "Deleted"
                 db.session.commit()
-            if server and Execution.query.filter_by(tavernaId=server.workflowId).count() == 1:
+            if server and server.getWorkflowRunNumber() == 0:  #Execution.query.filter_by(tavernaId=server.workflowId).count() == 0:
                 try:
                     serverManager.deleteWorkflow(server.workflowId, ticket)
+                    server.valid = False
+                    db.session.commit()                    
                 except Exception, e:
                     sentry.captureException()
                     pass
