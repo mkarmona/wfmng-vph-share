@@ -13,7 +13,7 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository>
+            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
@@ -41,7 +41,7 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository>
+            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
@@ -69,7 +69,7 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository>
+            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
@@ -97,7 +97,7 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository>
+            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
@@ -125,7 +125,7 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository>
+            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
@@ -254,7 +254,7 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository>
+            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
