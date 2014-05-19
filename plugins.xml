@@ -13,7 +13,6 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
@@ -41,7 +40,6 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
@@ -69,7 +67,6 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
@@ -97,7 +94,6 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
@@ -125,7 +121,6 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
@@ -205,7 +200,7 @@
     <plugin>
         <provider>org.vphshare.tavernaplugin</provider>
         <identifier>org.vphshare.tavernaplugin.vphshare-plugin</identifier>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.1.1-SNAPSHOT</version>
         <name>VPH-Share Taverna Plugin</name>
         <description/>
         <enabled>true</enabled>
@@ -217,7 +212,7 @@
             <dependency>
                 <groupId>org.vphshare.tavernaplugin</groupId>
                 <artifactId>vphshare-plugin-activity</artifactId>
-                <version>0.1.0-SNAPSHOT</version>
+                <version>0.1.1-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>junit</groupId>
@@ -232,7 +227,7 @@
             <dependency>
                 <groupId>org.vphshare.tavernaplugin</groupId>
                 <artifactId>vphshare-plugin-activity-ui</artifactId>
-                <version>0.1.0-SNAPSHOT</version>
+                <version>0.1.1-SNAPSHOT</version>
             </dependency>
         </profile>
         <compatibility>
@@ -254,7 +249,6 @@
             <repository>http://uk.maven.org/maven2/</repository>
             <repository>http://download.java.net/maven/2/</repository>
             <repository>http://www.soapui.org/repository/maven2/</repository>
-            <!-- <repository>http://www.mygrid.org.uk/maven/biomoby/moby-dev.inab.org/m2/</repository> -->
         </repositories>
         <profile>
             <dependency>
