@@ -8,11 +8,7 @@
         <description>API Consumer service</description>
         <enabled>true</enabled>
         <repositories>
-            <repository>http://www.mygrid.org.uk/maven/repository/</repository>
-            <repository>http://www.mygrid.org.uk/maven/snapshot-repository/</repository>
-            <repository>http://uk.maven.org/maven2/</repository>
-            <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://www.soapui.org/repository/maven2/</repository>
+            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
         </repositories>
         <profile>
             <dependency>
@@ -35,11 +31,7 @@
         <description>Taverna 2 bioinformatics services</description>
         <enabled>true</enabled>
         <repositories>
-            <repository>http://www.mygrid.org.uk/maven/repository/</repository>
-            <repository>http://www.mygrid.org.uk/maven/snapshot-repository/</repository>
-            <repository>http://uk.maven.org/maven2/</repository>
-            <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://www.soapui.org/repository/maven2/</repository>
+            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
         </repositories>
         <profile>
             <dependency>
@@ -62,11 +54,7 @@
         <description>Taverna 2 common services</description>
         <enabled>true</enabled>
         <repositories>
-            <repository>http://www.mygrid.org.uk/maven/repository/</repository>
-            <repository>http://www.mygrid.org.uk/maven/snapshot-repository/</repository>
-            <repository>http://uk.maven.org/maven2/</repository>
-            <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://www.soapui.org/repository/maven2/</repository>
+            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
         </repositories>
         <profile>
             <dependency>
@@ -89,11 +77,7 @@
         <description>Component service developed by BioVeL, SCAPE and wf4ever</description>
         <enabled>true</enabled>
         <repositories>
-            <repository>http://www.mygrid.org.uk/maven/repository/</repository>
-            <repository>http://www.mygrid.org.uk/maven/snapshot-repository/</repository>
-            <repository>http://uk.maven.org/maven2/</repository>
-            <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://www.soapui.org/repository/maven2/</repository>
+            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
         </repositories>
         <profile>
             <dependency>
@@ -116,11 +100,7 @@
         <description>Interacton service developed by BioVeL</description>
         <enabled>true</enabled>
         <repositories>
-            <repository>http://www.mygrid.org.uk/maven/repository/</repository>
-            <repository>http://www.mygrid.org.uk/maven/snapshot-repository/</repository>
-            <repository>http://uk.maven.org/maven2/</repository>
-            <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://www.soapui.org/repository/maven2/</repository>
+            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
         </repositories>
         <profile>
             <dependency>
@@ -149,12 +129,7 @@
         <description>Taverna 2 provenance support</description>
         <enabled>true</enabled>
         <repositories>
-            <repository>http://www.mygrid.org.uk/maven/repository/</repository>
-            <repository>http://www.mygrid.org.uk/maven/snapshot-repository/</repository>
-            <repository>http://uk.maven.org/maven2/</repository>
-            <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://www.soapui.org/repository/maven2/</repository>
-            <repository>http://openprovenance.org/java/maven-releases/</repository>
+            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
         </repositories>
         <profile>
             <dependency>
@@ -177,12 +152,7 @@
         <description>Allows execution of Taverna workflows from the command line</description>
         <enabled>true</enabled>
         <repositories>
-            <repository>http://www.mygrid.org.uk/maven/repository/</repository>
-            <repository>http://www.mygrid.org.uk/maven/snapshot-repository/</repository>
-            <repository>http://uk.maven.org/maven2/</repository>
-            <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://www.soapui.org/repository/maven2/</repository>
-            <repository>http://openprovenance.org/java/maven-releases/</repository>
+            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
         </repositories>
         <profile>
             <dependency>
@@ -244,11 +214,7 @@
         <description>WebDAV service developed by BioVeL</description>
         <enabled>true</enabled>
         <repositories>
-            <repository>http://www.mygrid.org.uk/maven/repository/</repository>
-            <repository>http://www.mygrid.org.uk/maven/snapshot-repository/</repository>
-            <repository>http://uk.maven.org/maven2/</repository>
-            <repository>http://download.java.net/maven/2/</repository>
-            <repository>http://www.soapui.org/repository/maven2/</repository>
+            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
         </repositories>
         <profile>
             <dependency>
