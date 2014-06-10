@@ -3,7 +3,7 @@
     <plugin>
         <provider>taverna.sf.net</provider>
         <identifier>net.sf.taverna.t2.apiconsumer-activity-no-ui</identifier>
-        <version>2.5-SNAPSHOT-20140206</version>
+        <version>2.5.0-20140415</version>
         <name>API Consumer Service</name>
         <description>API Consumer service</description>
         <enabled>true</enabled>
@@ -14,19 +14,42 @@
             <dependency>
                 <groupId>net.sf.taverna.t2.activities</groupId>
                 <artifactId>apiconsumer-activity</artifactId>
-                <version>1.5-SNAPSHOT</version>
+                <version>1.5</version>
             </dependency>
         </profile>
         <compatibility>
             <application>
-                <version>2.5-SNAPSHOT</version>
+                <version>2.5.0</version>
+            </application>
+        </compatibility>
+    </plugin>
+    <plugin>
+        <provider>taverna.sf.net</provider>
+        <identifier>net.sf.taverna.t2.biomoby-activity-no-ui</identifier>
+        <version>2.5.0-20140415</version>
+        <name>BioMoby Service</name>
+        <description>BioMoby service</description>
+        <enabled>true</enabled>
+        <repositories>
+            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
+        </repositories>
+        <profile>
+            <dependency>
+                <groupId>net.sf.taverna.t2.activities</groupId>
+                <artifactId>biomoby-activity</artifactId>
+                <version>1.5</version>
+            </dependency>
+        </profile>
+        <compatibility>
+            <application>
+                <version>2.5.0</version>
             </application>
         </compatibility>
     </plugin>
     <plugin>
         <provider>taverna.sf.net</provider>
         <identifier>net.sf.taverna.t2.activities.bioinformatics-no-ui</identifier>
-        <version>2.5-SNAPSHOT-20140206</version>
+        <version>2.5.0-20140415</version>
         <name>Bioinformatics services</name>
         <description>Taverna 2 bioinformatics services</description>
         <enabled>true</enabled>
@@ -37,20 +60,20 @@
             <dependency>
                 <groupId>net.sf.taverna.t2.activities</groupId>
                 <artifactId>bioinformatics-activities</artifactId>
-                <version>1.5-SNAPSHOT</version>
+                <version>1.5</version>
             </dependency>
         </profile>
         <compatibility>
             <application>
-                <version>2.5-SNAPSHOT</version>
+                <version>2.5.0</version>
             </application>
         </compatibility>
     </plugin>
     <plugin>
         <provider>taverna.sf.net</provider>
         <identifier>net.sf.taverna.t2.activities.common-no-ui</identifier>
-        <version>2.5-SNAPSHOT-20140206</version>
-        <name>Common services (required)</name>
+        <version>2.5.0-20140415</version>
+        <name>Common services</name>
         <description>Taverna 2 common services</description>
         <enabled>true</enabled>
         <repositories>
@@ -60,20 +83,20 @@
             <dependency>
                 <groupId>net.sf.taverna.t2.activities</groupId>
                 <artifactId>common-activities</artifactId>
-                <version>1.5-SNAPSHOT</version>
+                <version>1.5</version>
             </dependency>
         </profile>
         <compatibility>
             <application>
-                <version>2.5-SNAPSHOT</version>
+                <version>2.5.0</version>
             </application>
         </compatibility>
     </plugin>
     <plugin>
         <provider>taverna.sf.net</provider>
         <identifier>net.sf.taverna.t2.component-activity-no-ui</identifier>
-        <version>2.5-SNAPSHOT-20140206</version>
-        <name>Component Service (required)</name>
+        <version>2.5.0-20140415</version>
+        <name>Component Service</name>
         <description>Component service developed by BioVeL, SCAPE and wf4ever</description>
         <enabled>true</enabled>
         <repositories>
@@ -83,20 +106,20 @@
             <dependency>
                 <groupId>net.sf.taverna.t2.component</groupId>
                 <artifactId>component-activity</artifactId>
-                <version>1.5-SNAPSHOT</version>
+                <version>1.5</version>
             </dependency>
         </profile>
         <compatibility>
             <application>
-                <version>2.5-SNAPSHOT</version>
+                <version>2.5.0</version>
             </application>
         </compatibility>
     </plugin>
     <plugin>
         <provider>taverna.sf.net</provider>
         <identifier>net.sf.taverna.t2.interaction-activity-no-ui</identifier>
-        <version>2.5-SNAPSHOT-20140206</version>
-        <name>Interaction Service (required)</name>
+        <version>2.5.0-20140415</version>
+        <name>Interaction Service</name>
         <description>Interacton service developed by BioVeL</description>
         <enabled>true</enabled>
         <repositories>
@@ -104,50 +127,21 @@
         </repositories>
         <profile>
             <dependency>
-                <groupId>javax.servlet</groupId>
-                <artifactId>servlet-api</artifactId>
-                <version>2.4</version>
-                <system>true</system>
-            </dependency>
-            <dependency>
                 <groupId>net.sf.taverna.t2.activities</groupId>
                 <artifactId>interaction-activity</artifactId>
-                <version>1.5-SNAPSHOT</version>
+                <version>1.5</version>
             </dependency>
         </profile>
         <compatibility>
             <application>
-                <version>2.5-SNAPSHOT</version>
-            </application>
-        </compatibility>
-    </plugin>
-    <plugin>
-        <provider>taverna.sf.net</provider>
-        <identifier>net.sf.taverna.t2.taverna-workbench.provenanceconnectors-plugin</identifier>
-        <version>2.5-SNAPSHOT-20140206</version>
-        <name>Provenance (required)</name>
-        <description>Taverna 2 provenance support</description>
-        <enabled>true</enabled>
-        <repositories>
-            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
-        </repositories>
-        <profile>
-            <dependency>
-                <groupId>net.sf.taverna.t2.taverna-workbench.plugins</groupId>
-                <artifactId>provenanceconnectors-plugin</artifactId>
-                <version>2.5-SNAPSHOT</version>
-            </dependency>
-        </profile>
-        <compatibility>
-            <application>
-                <version>2.5-SNAPSHOT</version>
+                <version>2.5.0</version>
             </application>
         </compatibility>
     </plugin>
     <plugin>
         <provider>taverna.sf.net</provider>
         <identifier>net.sf.taverna.t2.commandline</identifier>
-        <version>2.5-SNAPSHOT</version>
+        <version>2.5.0</version>
         <name>Taverna Command Line</name>
         <description>Allows execution of Taverna workflows from the command line</description>
         <enabled>true</enabled>
@@ -158,31 +152,54 @@
             <dependency>
                 <groupId>net.sf.taverna.t2.taverna-commandline</groupId>
                 <artifactId>taverna-commandline-common</artifactId>
-                <version>1.5-SNAPSHOT</version>
+                <version>1.5</version>
             </dependency>
         </profile>
         <compatibility>
             <application>
-                <version>2.5-SNAPSHOT</version>
+                <version>2.5.0</version>
+            </application>
+        </compatibility>
+    </plugin>
+    <plugin>
+        <provider>taverna.sf.net</provider>
+        <identifier>net.sf.taverna.t2.webdav-activity-no-ui</identifier>
+        <version>2.5.0-20140415</version>
+        <name>WebDAV Service</name>
+        <description>WebDAV service developed by BioVeL</description>
+        <enabled>true</enabled>
+        <repositories>
+            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
+        </repositories>
+        <profile>
+            <dependency>
+                <groupId>net.sf.taverna.t2.activities</groupId>
+                <artifactId>webdav-activity</artifactId>
+                <version>1.5</version>
+            </dependency>
+        </profile>
+        <compatibility>
+            <application>
+                <version>2.5.0</version>
             </application>
         </compatibility>
     </plugin>
     <plugin>
         <provider>org.vphshare.tavernaplugin</provider>
         <identifier>org.vphshare.tavernaplugin.vphshare-plugin</identifier>
-        <version>0.1.1-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
         <name>VPH-Share Taverna Plugin</name>
         <description/>
         <enabled>true</enabled>
         <repositories>
-            <repository>http://repository.cistib.org/nexus/content/repositories/snapshots_taverna_online/</repository>
+            <repository>http://repository.cistib.org/nexus/content/repositories/snapshots/</repository>
             <repository>http://www.gimias.org/maven/repositories/releases/</repository>
         </repositories>
         <profile>
             <dependency>
                 <groupId>org.vphshare.tavernaplugin</groupId>
                 <artifactId>vphshare-plugin-activity</artifactId>
-                <version>0.1.1-SNAPSHOT</version>
+                <version>1.0.0-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>junit</groupId>
@@ -197,36 +214,13 @@
             <dependency>
                 <groupId>org.vphshare.tavernaplugin</groupId>
                 <artifactId>vphshare-plugin-activity-ui</artifactId>
-                <version>0.1.1-SNAPSHOT</version>
+                <version>1.0.0-SNAPSHOT</version>
             </dependency>
         </profile>
         <compatibility>
             <application>
-                <version>2.5-SNAPSHOT</version>
+                <version>2.5.0</version>
             </application>
         </compatibility>
-    </plugin>
-    <plugin>
-        <provider>taverna.sf.net</provider>
-        <identifier>net.sf.taverna.t2.webdav-activity-no-ui</identifier>
-        <version>2.5-SNAPSHOT-20140206</version>
-        <name>WebDAV Service (required)</name>
-        <description>WebDAV service developed by BioVeL</description>
-        <enabled>true</enabled>
-        <repositories>
-            <repository>file:///var/lib/tomcat6/webapps/taverna-server/WEB-INF/repository/</repository>
-        </repositories>
-        <profile>
-            <dependency>
-                <groupId>net.sf.taverna.t2.activities</groupId>
-                <artifactId>sardine-activity</artifactId>
-                <version>1.5-SNAPSHOT</version>
-            </dependency>
-        </profile>
-        <compatibility>
-            <application>
-                <version>2.5-SNAPSHOT</version>
-            </application>
-        </compatibility>
-    </plugin>
+    </plugin>	
 </plugins:plugins>
