@@ -93,6 +93,7 @@ class Workflow(db.Model):
 
             stderr (string): the taverna command line standard error stream
 
+            output (string): xml document specifying the workflow outputs
 
     """
 
@@ -108,9 +109,10 @@ class Workflow(db.Model):
     stdout = db.Column(db.String(2048), primary_key=False)
     stderr = db.Column(db.String(2048), primary_key=False)
     outputfolder = db.Column(db.String(2048), primary_key=False)
+    output = db.Column(db.String(2048), primary_key=False)
 
     def __init__(self, username, workflowId, title, outputfolder, status = "Initialized", createTime = "", startTime="", finishTime="",
-                 expiry="", exitcode="", stdout="", stderr=""):
+                 expiry="", exitcode="", stdout="", stderr="", output=""):
         self.username = username
         self.workflowRunId = workflowId
         self.title = title
@@ -123,6 +125,7 @@ class Workflow(db.Model):
         self.stdout = stdout
         self.stderr = stderr
         self.outputfolder = outputfolder
+        self.output = output
 
     def __repr__(self):
         return '<Workflow %r-%r>' % (self.username, self.workflowId)
@@ -141,7 +144,8 @@ class Workflow(db.Model):
                'stdout': self.stdout,
                'stderr': self.stderr,
                'owner': self.username,
-               'outputfolder': self.outputfolder
+               'outputfolder': self.outputfolder,
+               'output' : self.output
         }
 
         return ret
@@ -549,7 +553,8 @@ class TavernaServer(db.Model):
                 'asConfigId': '',
                 'tavernaRunning': '',
                 'owner': '',
-                'wfRunning': ''
+                'wfRunning': '',
+                'output' : ''
         }
 
         ret['endpoint'] = self.url
@@ -568,14 +573,18 @@ class TavernaServer(db.Model):
         if ret['wfRunning']:
             infos = ["status", "createTime", "expiry", "startTime", "finishTime"]
             for info in infos:
-                ret[info] = self.getInfo(wfRunId, info)
+                headers = {"Content-type": "text/plain", 'Authorization': 'Basic %s' % self.userAndPass}
+                ret[info] = self.getInfo(wfRunId, info, headers)
 
             additional_info = {'stderr': "listeners/io/properties/stderr",
                                'stdout': "listeners/io/properties/stdout",
                                'exitcode': "listeners/io/properties/exitcode"}
 
             for info in additional_info.keys():
-                ret[info] = self.getInfo(wfRunId, additional_info[info])
+                ret[info] = self.getInfo(wfRunId, additional_info[info], headers)
+                
+            headers = {"Content-type": "text/plain", 'Authorization': 'Basic %s' % self.userAndPass , 'Accept': 'application/xml'}
+            ret['output'] = self.getInfo(wfRunId, "output", headers)
             wfJob.update(ret)
             db.session.commit()
         elif wfJob:
@@ -589,23 +598,27 @@ class TavernaServer(db.Model):
                 'exitcode': wfJob.exitcode,
                 'stdout': wfJob.stdout,
                 'stderr': wfJob.stderr,
-                'outputfolder': wfJob.outputfolder
+                'outputfolder': wfJob.outputfolder,
+                'output': wfJob.output
             })
 
         return ret
 
-    def getInfo(self, wfRunId, info):
+    def getInfo(self, wfRunId, info, headers):
         """ return the workflow id requested info as a string
 
         Arguments:
-            workflowId (string): the workflow unique identifier
+            wfRunId (string): the workflow unique identifier
+            
+            info (string): code name for the information requested
+            
+            headers (string): headers for the GET operation
 
         Returns:
             string. The requested info as a string
 
         """
 
-        headers = {"Content-type": "text/plain", 'Authorization': 'Basic %s' % self.userAndPass}
         response = requests.get('%s/%s/%s' % (self.url, wfRunId, info), headers=headers, verify=False)
         if response.status_code == 200:
             return response.content
@@ -671,6 +684,7 @@ class TavernaServer(db.Model):
                 Failure -- False
 
         """
+
         if self.isWorkflowAlive(wfRunId):
             response = requests.delete("%s/%s" % (self.url, wfRunId),
                                        headers={
@@ -980,11 +994,11 @@ def getWorkflowInformation(eid, ticket):
         Returns:
             dictionary::
 
-                Success -- {'status': '', 'createTime': '', 'startTime': '', 'finishTime': '', 'expiry': '', 'exitcode': '', 'stdout': '', 'stderr': '', 'outputfolder': '', 'endpoint': '', 'workflowId': '', 'asConfigId': '', 'tavernaRunning': '', 'owner': '', 'wfRunning': ''}
+                Success -- {'status': '', 'createTime': '', 'startTime': '', 'finishTime': '', 'expiry': '', 'exitcode': '', 'stdout': '', 'stderr': '', 'outputfolder': '', 'endpoint': '', 'workflowId': '', 'asConfigId': '', 'tavernaRunning': '', 'owner': '', 'wfRunning': '', 'output': ''}
                 Failure -- False
     """
     try:
-        ret = {'executionstatus':'', 'error': '', 'error_msg': '', 'status': '', 'createTime': '', 'startTime': '', 'finishTime': '', 'expiry': '', 'exitcode': '', 'stdout': '', 'stderr': '', 'outputfolder': '', 'endpoint': '', 'workflowId': '', 'asConfigId': '', 'tavernaRunning': '', 'owner': '', 'wfRunning': ''}
+        ret = {'executionstatus':'', 'error': '', 'error_msg': '', 'status': '', 'createTime': '', 'startTime': '', 'finishTime': '', 'expiry': '', 'exitcode': '', 'stdout': '', 'stderr': '', 'outputfolder': '', 'endpoint': '', 'workflowId': '', 'asConfigId': '', 'tavernaRunning': '', 'owner': '', 'wfRunning': '', 'output': ''}
         execution = Execution.query.filter_by(eid=eid).first()
         if execution == None:
             return False
