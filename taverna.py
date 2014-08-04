@@ -453,10 +453,10 @@ class TavernaServerConnector():
         ret = {'workflowId': workflowId}
 
         infos = ["status", "createTime", "expiry", "startTime", "finishTime"]
-
+        headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         for info in infos:
             try:
-                ret[info] = self.getWorkflowInfo(workflowId, info)
+                ret[info] = self.getWorkflowInfo(workflowId, info, headers)
             except Exception as e:
                 ret[info] = ""
                 ret["error.description"] = "Error Getting Workflow Information ( %s ) " % info
@@ -468,14 +468,21 @@ class TavernaServerConnector():
 
         for info in additional_info.keys():
             try:
-                ret[info] = self.getWorkflowInfo(workflowId, additional_info[info])
+                ret[info] = self.getWorkflowInfo(workflowId, additional_info[info], headers)
             except Exception as e:
                 ret[info] = ""
                 ret["error.description"] = "Error Getting Workflow Information ( %s ) " % info
                 ret["error.code"] = type(e)
+        try:
+            headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass, 'Accept': 'application/xml'}        
+            ret["output"] = self.getWorkflowInfo(workflowId, "output", headers)
+        except Exception as e:
+            ret[info] = ""
+            ret["error.description"] = "Error Getting Workflow Information ( %s ) " % info
+            ret["error.code"] = type(e)
         return ret
 
-    def getWorkflowInfo(self, workflowId, info):
+    def getWorkflowInfo(self, workflowId, info, headers):
         """ return the workflow id requested info as a string
 
         Arguments:
@@ -486,7 +493,6 @@ class TavernaServerConnector():
 
         """
 
-        headers = {"Content-type": "text/plain" , 'Authorization' : 'Basic %s' %  self.userAndPass}
         response = requests.get('https://%s/%s/%s'%(self.server_url+self.service_url,workflowId, info),  headers=headers,  verify=False)
         ret = response.content
 
