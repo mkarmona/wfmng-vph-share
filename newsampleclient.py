@@ -4,10 +4,10 @@ import os
 from wfmng import *
 from auth import getAuthTicket
 import random
-user = ''
-passwd = ''
+user = 'asagli'
+passwd = 'selvagg.86'
 
-tavernaServerCloudId = "245"
+tavernaServerCloudId = "404"
 
 ticket = getAuthTicket( user, passwd )
 
