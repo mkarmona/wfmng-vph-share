@@ -1080,7 +1080,12 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                 decodedString = base64.b64decode(elementData)
                 decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
                 decodedString = string.replace(decodedString,"VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
-                if "." in decodedString and webdav.getType(string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV))=='file': 
+                isFile = False
+                try: # check if the input is a file. If it is not (such as a constant or a folder) an exception will be triggered
+                    isFile = webdav.getType(string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV))=='file'
+                except:
+                    pass
+                if isFile == True: 
                     splittedString = string.split(decodedString, '/')
                     elementData = workflowFolder + '/' + splittedString[len(splittedString) - 1]
                     copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
@@ -1095,14 +1100,21 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
             else:
             # if partialOrder tag is found, the input corresponds to a list of values
                 if u'@type' in partialOrder and partialOrder[u'@type'] == "list":
-                    itemList = partialOrder.get('b:itemList', None)
-                    for dataElement in itemList.items()[0][1]:
+                    itemList = partialOrder.get('b:itemList', None).items()[0][1]
+                    if not(type(itemList) is list):
+                        itemList = [{'b:dataElementData':  itemList['b:dataElementData'], u'@index':  u'0'}] 
+                    for dataElement in itemList:
                         # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
                         elementData = dataElement['b:dataElementData']
                         decodedString = base64.b64decode(elementData)
                         decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
                         decodedString = string.replace(decodedString, "VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
-                        if webdav.getType(string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV))=='file': 
+                        isFile = False
+                        try: # check if the input is a file. If it is not (such as a constant or a folder) an exception will be triggered
+                            isFile = webdav.getType(string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV))=='file'
+                        except:
+                            pass
+                        if isFile == True: 
                             decodedString = string.replace(decodedString,"VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
                             splittedString = string.split(decodedString, '/')
                             index = dataElement[u'@index']
@@ -1115,12 +1127,17 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                             copyDestination = string.replace(elementData, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
                             webdav.copy(copySource, copyDestination)
                             decodedString = elementData
-                        elif workflowFolder in decodedString: # In theory, this should correspond to an output folder specification. Note that getType() can't be used here because the folder does not exists yet.
+                        else: 
                             index = dataElement[u'@index']
-                            decodedString = decodedString.replace(workflowFolder, workflowFolder + '/' + index , 1) # include the index of the element on the folder name
-                            outputfolder = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                            if webdav.exists(outputfolder) == False:
-                                webdav.mkdirs(outputfolder)
+                            outputfolder = LOBCDER_ROOT_IN_WEBDAV + WORKFLOWS_OUTPUT_FOLDER + workflowId + '/' + index
+                            if workflowFolder in decodedString: # In theory, this should correspond to an output folder specification. Note that getType() can't be used here because the folder does not exists yet.
+                                outputfolder = decodedString.replace(workflowFolder, workflowFolder + '/' + index , 1) # include the index of the element on the folder name
+                            outputfolder = string.replace(outputfolder, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
+                            try: # try to create the folder. Handle the exception to avoid breaking everything if the variable does not contains a folder path (such as a constant)
+                                if webdav.exists(outputfolder) == False:
+                                    webdav.mkdirs(outputfolder)
+                            except:
+                                pass
                         inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(decodedString), 1)  
         ret['inputDefinition'] = inputDefinition
         ret['outputFolder'] = '/%s%s' % (WORKFLOWS_OUTPUT_FOLDER, workflowId)
