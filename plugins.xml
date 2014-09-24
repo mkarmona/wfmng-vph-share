@@ -187,19 +187,19 @@
     <plugin>
         <provider>org.vphshare.tavernaplugin</provider>
         <identifier>org.vphshare.tavernaplugin.vphshare-plugin</identifier>
-        <version>1.0.0-SNAPSHOT</version>
+        <version>1.0.1</version>
         <name>VPH-Share Taverna Plugin</name>
         <description/>
         <enabled>true</enabled>
         <repositories>
-            <repository>http://repository.cistib.org/nexus/content/repositories/snapshots/</repository>
+            <repository>http://repository.cistib.org/nexus/content/repositories/releases/</repository>
             <repository>http://www.gimias.org/maven/repositories/releases/</repository>
         </repositories>
         <profile>
             <dependency>
                 <groupId>org.vphshare.tavernaplugin</groupId>
                 <artifactId>vphshare-plugin-activity</artifactId>
-                <version>1.0.0-SNAPSHOT</version>
+                <version>1.0.1</version>
             </dependency>
             <dependency>
                 <groupId>junit</groupId>
@@ -214,7 +214,7 @@
             <dependency>
                 <groupId>org.vphshare.tavernaplugin</groupId>
                 <artifactId>vphshare-plugin-activity-ui</artifactId>
-                <version>1.0.0-SNAPSHOT</version>
+                <version>1.0.1</version>
             </dependency>
         </profile>
         <compatibility>
