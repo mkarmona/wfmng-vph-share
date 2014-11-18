@@ -4,8 +4,8 @@ import os
 from wfmng import *
 from auth import getAuthTicket
 import random
-user = 'asagli'
-passwd = 'selvagg.86'
+user = ''
+passwd = ''
 
 tavernaServerCloudId = "404"
 

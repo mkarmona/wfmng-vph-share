@@ -7,9 +7,7 @@ from auth import getAuthTicket
 
 wfmng = ServerProxy("http://wfmng.vph-share.eu/api")
 #user = 'testuser'
-#passwd = '6w8DHF'
-user = 'asagli'
-passwd = 'selvagg.86'
+#passwd = ''
 
 tavernaServerASid = "528a3b948664880b2b00f0cf" # (Taverna server secured - SUN JDK)
 #"526a78538664880543005f6b" # (Taverna server insecured - SUN JDK)
