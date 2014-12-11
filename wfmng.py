@@ -505,6 +505,56 @@ class TavernaServer(db.Model):
             return response.text
         return ""
 
+    def getWorkflowOutput(self, wfRunId, port):
+        """
+            Retrieves the value of a workflow port from taverna server
+
+        :param workflowId:
+        :param port:
+        :return:
+        """
+        response = requests.get("%s/%s/wd/out/%s" % (self.url, wfRunId, port),
+                                headers={
+                                    'Accept': 'text/plain,text/html,application/xml;q=0.9,*/*;q=0.8',
+                                    'Authorization': 'Basic %s' % self.userAndPass
+                                },
+                                allow_redirects=True,
+                                verify=False)
+
+        if response.status_code == 200:
+            return response.text
+        return ""
+
+    def enhanceWorkflowOutputs(self, wfRunId, outputXML):
+        """
+            Return an improved and simpler version of the specified output XML
+
+        :param workflowId:
+        :param outputXML:
+        :return:
+        """
+        out = ""
+        outputXMLContent = xmltodict.parse(outputXML)
+        if  type(outputXMLContent[u'port:workflowOutputs'][u'port:output']) is list:
+            out = ""
+            for port in outputXMLContent[u'port:workflowOutputs'][u'port:output']:
+                if out!="":
+                    out = out + ", "
+                out = out + port[u'@port:name'] + "="
+                value =""
+                if not(u'port:absent' in port):
+                    value = self.getWorkflowOutput(wfRunId, port[u'@port:name'])
+                out = out + value
+
+        else:
+            port = outputXMLContent[u'port:workflowOutputs'][u'port:output']
+            out = port[u'@port:name'] + "="
+            value =""
+            if not(u'port:absent' in port):
+                value = self.getWorkflowOutput(wfRunId, port[u'@port:name'])
+            out = out + value
+        return out
+
     def getWorkflowDefinition(self, wfRunId):
         """
             Retrieve the workflow file from taverna  server
@@ -584,7 +634,7 @@ class TavernaServer(db.Model):
                 ret[info] = self.getInfo(wfRunId, additional_info[info], headers)
                 
             headers = {"Content-type": "text/plain", 'Authorization': 'Basic %s' % self.userAndPass , 'Accept': 'application/xml'}
-            ret['output'] = self.getInfo(wfRunId, "output", headers)
+            ret['output'] = self.enhanceWorkflowOutputs(  wfRunId, self.getInfo(wfRunId, "output", headers))
             wfJob.update(ret)
             db.session.commit()
         elif wfJob:
