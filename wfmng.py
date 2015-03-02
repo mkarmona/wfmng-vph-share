@@ -931,11 +931,14 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
         certificateContentCyfronet = open(os.path.join(abs_path, certificateFileNameCyfronet), 'r').read()
         certificateFileNamePortal = "portal.vph-share.eu.crt"
         certificateContentPortal = open(os.path.join(abs_path, certificateFileNamePortal), 'r').read()
+        certificateFileNameCyfronetStar = "star." + certificateFileNameCyfronet
+        certificateFileNameCyfronetStar = open(os.path.join(abs_path, certificateFileNameCyfronetStar), 'r').read()          
         # pluginPropertiesFileName (string): filename of the plugin properties file
         pluginPropertiesFileName = "vphshare.properties"
         ## set up the ticket in the plugin configuration
         server.setTicket(wfRunid, ticket)
         # set up cloud provider identity certificate
+        server.setTrustedIdentity(wfRunid, "*." + certificateFileNameCyfronet, certificateFileNameCyfronetStar)
         server.setTrustedIdentity(wfRunid, certificateFileNameCyfronet, certificateContentCyfronet)
         server.setTrustedIdentity(wfRunid, certificateFileNamePortal, certificateContentPortal)
         # set up plugins
