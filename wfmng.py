@@ -534,25 +534,29 @@ class TavernaServer(db.Model):
         :return:
         """
         out = ""
-        outputXMLContent = xmltodict.parse(outputXML)
-        if  type(outputXMLContent[u'port:workflowOutputs'][u'port:output']) is list:
-            out = ""
-            for port in outputXMLContent[u'port:workflowOutputs'][u'port:output']:
-                if out!="":
-                    out = out + ", "
-                out = out + port[u'@port:name'] + "="
+        try:
+            outputXMLContent = xmltodict.parse(outputXML)
+            if  type(outputXMLContent[u'port:workflowOutputs'][u'port:output']) is list:
+                out = ""
+                for port in outputXMLContent[u'port:workflowOutputs'][u'port:output']:
+                    if out!="":
+                        out = out + ", "
+                    out = out + port[u'@port:name'] + "="
+                    value =""
+                    if not(u'port:absent' in port):
+                        value = self.getWorkflowOutput(wfRunId, port[u'@port:name'])
+                    out = out + value
+
+            else:
+                port = outputXMLContent[u'port:workflowOutputs'][u'port:output']
+                out = port[u'@port:name'] + "="
                 value =""
                 if not(u'port:absent' in port):
                     value = self.getWorkflowOutput(wfRunId, port[u'@port:name'])
                 out = out + value
-
-        else:
-            port = outputXMLContent[u'port:workflowOutputs'][u'port:output']
-            out = port[u'@port:name'] + "="
-            value =""
-            if not(u'port:absent' in port):
-                value = self.getWorkflowOutput(wfRunId, port[u'@port:name'])
-            out = out + value
+        except Exception, e:
+            pass
+            out = "Could not parse: " + outputXML
         return out
 
     def getWorkflowDefinition(self, wfRunId):
@@ -635,7 +639,8 @@ class TavernaServer(db.Model):
                 
             headers = {"Content-type": "text/plain", 'Authorization': 'Basic %s' % self.userAndPass , 'Accept': 'application/xml'}
             ret['output'] = self.enhanceWorkflowOutputs(  wfRunId, self.getInfo(wfRunId, "output", headers))
-            wfJob.update(ret)
+            if wfJob:
+                wfJob.update(ret)
             db.session.commit()
         elif wfJob:
 
