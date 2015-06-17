@@ -536,29 +536,28 @@ class TavernaServer(db.Model):
         out = ""
         try:
             outputXMLContent = xmltodict.parse(outputXML)
-            if  type(outputXMLContent[u'port:workflowOutputs'][u'port:output']) is list:
-                out = ""
-                for port in outputXMLContent[u'port:workflowOutputs'][u'port:output']:
+            if u'port:absent' in outputXMLContent[u'port:workflowOutputs'][u'port:output']:
+                return outputXMLContent[u'port:workflowOutputs'][u'port:output'][u'@port:name'] + "="
+            if outputXMLContent[u'port:workflowOutputs'][u'port:output'][u'@port:depth']==u'0':
+                port = outputXMLContent[u'port:workflowOutputs'][u'port:output']
+                out = port[u'@port:name'] + "="
+                value = self.getWorkflowOutput(wfRunId, port[u'@port:name'])
+                out = out + value
+            if outputXMLContent[u'port:workflowOutputs'][u'port:output'][u'@port:depth']==u'1':
+                port = outputXMLContent[u'port:workflowOutputs'][u'port:output']
+                count = int(port['port:list']['@port:length'])
+                value =""
+                for i in range(count):
                     if out!="":
                         out = out + ", "
                     out = out + port[u'@port:name'] + "="
-                    value =""
-                    if not(u'port:absent' in port):
-                        value = self.getWorkflowOutput(wfRunId, port[u'@port:name'])
+                    value = self.getWorkflowOutput(wfRunId, port[u'@port:name']+"/"+str(i+1))
                     out = out + value
-
-            else:
-                port = outputXMLContent[u'port:workflowOutputs'][u'port:output']
-                out = port[u'@port:name'] + "="
-                value =""
-                if not(u'port:absent' in port):
-                    value = self.getWorkflowOutput(wfRunId, port[u'@port:name'])
-                out = out + value
         except Exception, e:
             pass
             out = "Could not parse: " + outputXML
         return out
-
+ 
     def getWorkflowDefinition(self, wfRunId):
         """
             Retrieve the workflow file from taverna  server
@@ -1152,7 +1151,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                     decodedString = elementData
                 elif workflowFolder in decodedString: # In theory, this should correspond to an output folder specification. Note that getType() can't be used here because the folder does not exists yet.
                     outputfolder = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
-                    if webdav.exists(outputfolder) == False:
+                    if not '.' in outputfolder and webdav.exists(outputfolder) == False:
                         webdav.mkdirs(outputfolder)
                 inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(decodedString), 1)
             else:
@@ -1192,7 +1191,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                                 outputfolder = decodedString.replace(workflowFolder, workflowFolder + '/' + index , 1) # include the index of the element on the folder name
                             outputfolder = string.replace(outputfolder, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
                             try: # try to create the folder. Handle the exception to avoid breaking everything if the variable does not contains a folder path (such as a constant)
-                                if webdav.exists(outputfolder) == False:
+                                if not '.' in outputfolder and webdav.exists(outputfolder) == False:
                                     webdav.mkdirs(outputfolder)
                             except:
                                 pass
