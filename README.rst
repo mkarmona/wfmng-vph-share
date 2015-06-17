@@ -25,7 +25,8 @@ Local configuration
 Database Syncronization
 +++++++++++++++++++++++
 
-    Open a msdos/unix shell and go into the wfmng directory and open a python shell.
+    Open a unix shell and go into the wfmng directory and open a python shell.
+    The wfmng uses a sqlite databse.
 
     Run the following ::
 
@@ -44,3 +45,15 @@ Start and Stop the wfmng app
     The wfmng app will be reachable at http://locahost:5000
 
     To stop the service, simply kill the process.
+
+Use the wfmng under apache
+++++++++++++++++++++++++++++
+
+    the production deployment of the wfmng should be done under apache web application.
+    In the wfmng folder you can find the -sample-wfmng-vhost.com- redefine in according with your configuration the follow parameters:
+
+        <wfmng-domain> : your wfmng domain.
+        <wfmng-folder> : your wfmng folder.
+
+    After that you can copy it in your apache site-enable folder.
+
