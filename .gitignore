@@ -4,3 +4,7 @@ docs/_build
 local.wfmng.cfg
 wfmng-vphshare.db
 *.pyc
+*~
+*.swp
+*.swo
+
