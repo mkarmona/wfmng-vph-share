@@ -1137,6 +1137,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                 decodedString = base64.b64decode(elementData)
                 decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
                 decodedString = string.replace(decodedString,"VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
+                decodedString = string.replace(decodedString,"VPHSHARE_RUN_ID", workflowId)
                 isFile = False
                 try: # check if the input is a file. If it is not (such as a constant or a folder) an exception will be triggered
                     isFile = webdav.getType(string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV))=='file'
@@ -1166,6 +1167,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         decodedString = base64.b64decode(elementData)
                         decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
                         decodedString = string.replace(decodedString, "VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
+                        decodedString = string.replace(decodedString, "VPHSHARE_RUN_ID", workflowId)
                         isFile = False
                         try: # check if the input is a file. If it is not (such as a constant or a folder) an exception will be triggered
                             isFile = webdav.getType(string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV))=='file'
@@ -1173,6 +1175,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                             pass
                         if isFile == True: 
                             decodedString = string.replace(decodedString,"VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
+                            decodedString = string.replace(decodedString,"VPHSHARE_RUN_ID", workflowId)
                             splittedString = string.split(decodedString, '/')
                             index = dataElement[u'@index']
                             # include the index of the element on the folder name
