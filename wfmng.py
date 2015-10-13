@@ -637,7 +637,11 @@ class TavernaServer(db.Model):
                 ret[info] = self.getInfo(wfRunId, additional_info[info], headers)
                 
             headers = {"Content-type": "text/plain", 'Authorization': 'Basic %s' % self.userAndPass , 'Accept': 'application/xml'}
-            ret['output'] = self.enhanceWorkflowOutputs(  wfRunId, self.getInfo(wfRunId, "output", headers))
+            out = self.getInfo(wfRunId, "output", headers)
+            if out!="":
+                ret['output'] = self.enhanceWorkflowOutputs(  wfRunId, out)
+            else:
+                ret['output'] = wfJob.output
             if wfJob:
                 wfJob.update(ret)
             db.session.commit()
