@@ -639,7 +639,11 @@ class TavernaServer(db.Model):
             headers = {"Content-type": "text/plain", 'Authorization': 'Basic %s' % self.userAndPass , 'Accept': 'application/xml'}
             out = self.getInfo(wfRunId, "output", headers)
             if out!="":
-                ret['output'] = self.enhanceWorkflowOutputs(  wfRunId, out)
+                enhanced = self.enhanceWorkflowOutputs(  wfRunId, out)
+                if len(enhanced) >= len( wfJob.output):
+                    ret['output'] = enhanced # enhanced outputs should increase in lenght with time. A decrease is an indication of a prossible synchronization problem.
+                else:
+                    ret['output'] = wfJob.output # when in doubt, use the previous value
             else:
                 ret['output'] = wfJob.output
             if wfJob:
