@@ -1055,7 +1055,6 @@ def deleteExecution(eid, ticket):
 
 
     except Exception, e:
-        sentry.captureException()
         return 'False'
     return 'True'
 
@@ -1099,7 +1098,6 @@ def getWorkflowInformation(eid, ticket):
 
         return ret
     except Exception, e:
-        sentry.captureException()
         return False
 
 def createOutputFolders(workflowId, inputDefinition, user, ticket):
@@ -1107,7 +1105,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
         Parses a baclava input definition file, create an output folder for the workflow with id workflowId,
         creates subfolders on it in case the input specifies a list of values, copy the input files into the newly
         created folders and finally modifies the input definition with the new pat of the input files
-        
+
         Arguments:
             workflowId (string): the workflow id
 
@@ -1115,7 +1113,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
 
             user (string): current user name
 
-            ticket (string): a valid authentication ticket      
+            ticket (string): a valid authentication ticket
     """
     LOBCDER_ROOT_IN_WEBDAV = app.config["LOBCDER_ROOT_IN_WEBDAV"]
     LOBCDER_ROOT_IN_FILESYSTEM = app.config["LOBCDER_ROOT_IN_FILESYSTEM"]
@@ -1216,7 +1214,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                                     webdav.mkdirs(outputfolder)
                             except:
                                 pass
-                        inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(decodedString), 1)  
+                        inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(decodedString), 1)
         ret['inputDefinition'] = inputDefinition
         ret['outputFolder'] = '/%s%s' % (WORKFLOWS_OUTPUT_FOLDER, workflowId)
     except Exception as e:
@@ -1235,18 +1233,19 @@ def deleteOutputFolder(folder, ticket):
 
     userO = extractUserFromTicket(ticket)
     user = userO['username']
+
+    folder = folder.strip("/")
     #folder to delete
     try:
         webdav = easywebdav.connect(app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username=user, password=ticket, protocol = 'https')
         try:
-            if not '.' in folder and webdav.exists(LOBCDER_ROOT_IN_WEBDAV + folder) == True:
-                webdav.rmdir(LOBCDER_ROOT_IN_WEBDAV + folder, True)
+            if ((not '.' in folder) and (webdav.exists(LOBCDER_ROOT_IN_WEBDAV + folder) == True)):
+                webdav.rmdir(LOBCDER_ROOT_IN_WEBDAV + folder)
 
         except:
-            sentry.captureException()
-
+            pass
     except:
-        sentry.captureException()
+        pass
 
 ############################################################################
 # register xmlrpc callback
