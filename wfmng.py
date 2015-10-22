@@ -1240,7 +1240,7 @@ def deleteOutputFolder(folder, ticket):
         webdav = easywebdav.connect(app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username=user, password=ticket, protocol = 'https')
         try:
             if not '.' in folder and webdav.exists(LOBCDER_ROOT_IN_WEBDAV + folder) == True:
-                webdav.rmdir(LOBCDER_ROOT_IN_WEBDAV + folder)
+                webdav.rmdir(LOBCDER_ROOT_IN_WEBDAV + folder, True)
 
         except:
             sentry.captureException()
