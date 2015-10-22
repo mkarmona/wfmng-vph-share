@@ -1013,7 +1013,7 @@ def stopWorkflow(eid, ticket):
                 try:
                     serverManager.deleteWorkflow(server.workflowId, ticket)
                     server.valid = False
-                    db.session.commit()                    
+                    db.session.commit()
                 except Exception, e:
                     sentry.captureException()
                     pass
@@ -1029,6 +1029,7 @@ def stopWorkflow(eid, ticket):
 def deleteExecution(eid, ticket):
     try:
         execution = Execution.query.filter_by(eid=eid).first()
+
         if stopWorkflow(eid, ticket):
             if execution.tavernaId != '':
                 server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
@@ -1040,10 +1041,19 @@ def deleteExecution(eid, ticket):
             if execution.workflowRunId != '':
                 workflow = Workflow.query.filter_by(workflowRunId=execution.workflowRunId).first()
                 if workflow:
+                    # get folder from workflow
+                    folder = workflow.outputfolder
+
                     db.session.delete(workflow)
                     db.session.commit()
+
+                    # delete folder
+                    deleteOutputFolder(folder,ticket)
+
             db.session.delete(execution)
             db.session.commit()
+
+
     except Exception, e:
         sentry.captureException()
         return 'False'
@@ -1213,6 +1223,30 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
         sentry.captureException()
         raise Exception('Error creating output folder')
     return ret
+
+def deleteOutputFolder(folder, ticket):
+    """Delete output folder if possible
+
+        Arguments:
+            folder (string): the workflow object
+            ticket (string): a valid authentication ticket
+    """
+    LOBCDER_ROOT_IN_WEBDAV = app.config["LOBCDER_ROOT_IN_WEBDAV"]
+
+    userO = extractUserFromTicket(ticket)
+    user = userO['username']
+    #folder to delete
+    try:
+        webdav = easywebdav.connect(app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username=user, password=ticket, protocol = 'https')
+        try:
+            if not '.' in folder and webdav.exists(LOBCDER_ROOT_IN_WEBDAV + folder) == True:
+                webdav.rmdir(LOBCDER_ROOT_IN_WEBDAV + folder)
+
+        except:
+            sentry.captureException()
+
+    except:
+        sentry.captureException()
 
 ############################################################################
 # register xmlrpc callback
