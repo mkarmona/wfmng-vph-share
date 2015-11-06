@@ -1111,6 +1111,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
     LOBCDER_ROOT_IN_FILESYSTEM = app.config["LOBCDER_ROOT_IN_FILESYSTEM"]
     LOBCDER_PATH_PREFIX = app.config["LOBCDER_PATH_PREFIX"]
     WORKFLOWS_OUTPUT_FOLDER = app.config["WORKFLOWS_OUTPUT_FOLDER"]
+    LOBCDER_URL = app.config["LOBCDER_URL"]
     namespaces = {'b': 'http://org.embl.ebi.escience/baclava/0.1alpha'}
     ret = {'workflowId': workflowId}
     ret['inputDefinition'] = ""
@@ -1143,6 +1144,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                 copySource = copyDestination = ''
                 elementData = dataElement['b:dataElementData']
                 decodedString = base64.b64decode(elementData)
+                decodedString = string.replace(decodedString, 'https://' + LOBCDER_URL + LOBCDER_ROOT_IN_WEBDAV , LOBCDER_ROOT_IN_FILESYSTEM)
                 decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
                 decodedString = string.replace(decodedString,"VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
                 decodedString = string.replace(decodedString,"VPHSHARE_RUN_ID", workflowId)
@@ -1173,6 +1175,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
                         elementData = dataElement['b:dataElementData']
                         decodedString = base64.b64decode(elementData)
+                        decodedString = string.replace(decodedString, 'https://' + LOBCDER_URL + LOBCDER_ROOT_IN_WEBDAV , LOBCDER_ROOT_IN_FILESYSTEM)
                         decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
                         decodedString = string.replace(decodedString, "VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
                         decodedString = string.replace(decodedString, "VPHSHARE_RUN_ID", workflowId)
