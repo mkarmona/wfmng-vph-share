@@ -1154,7 +1154,8 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                     isFile = webdav.getType(string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV))=='file'
                 except:
                     pass
-                if isFile == True: 
+                if isFile == True:
+                    decodedString = string.replace(decodedString, ' ', '\ ') # scape spaces in file paths
                     splittedString = string.split(decodedString, '/')
                     elementData = workflowFolder + '/' + splittedString[len(splittedString) - 1]
                     copySource = string.replace(decodedString, LOBCDER_ROOT_IN_FILESYSTEM, LOBCDER_ROOT_IN_WEBDAV)
@@ -1187,6 +1188,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         except:
                             pass
                         if isFile == True: 
+                            decodedString = string.replace(decodedString, ' ', '\ ') # scape spaces in file paths
                             decodedString = string.replace(decodedString,"VPHSHARE_RUN_OUTPUT_FOLDER", workflowFolder)
                             decodedString = string.replace(decodedString,"VPHSHARE_RUN_ID", workflowId)
                             splittedString = string.split(decodedString, '/')
