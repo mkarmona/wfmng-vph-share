@@ -1144,6 +1144,8 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                 copySource = copyDestination = ''
                 elementData = dataElement['b:dataElementData']
                 decodedString = base64.b64decode(elementData)
+                if decodedString.startswith('http'):
+                    decodedString = string.replace(decodedString, '%20', ' ')                                    
                 decodedString = string.replace(decodedString, 'https:/' + LOBCDER_URL + LOBCDER_ROOT_IN_WEBDAV , LOBCDER_ROOT_IN_FILESYSTEM)                
                 decodedString = string.replace(decodedString, 'https://' + LOBCDER_URL + LOBCDER_ROOT_IN_WEBDAV , LOBCDER_ROOT_IN_FILESYSTEM)
                 decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
@@ -1177,6 +1179,8 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                         # take the input file string, decode it, insert the new folder name on it an modify the input definition XML
                         elementData = dataElement['b:dataElementData']
                         decodedString = base64.b64decode(elementData)
+                        if decodedString.startswith('http'):
+                            decodedString = string.replace(decodedString, '%20', ' ')  
                         decodedString = string.replace(decodedString, 'https:/' + LOBCDER_URL + LOBCDER_ROOT_IN_WEBDAV , LOBCDER_ROOT_IN_FILESYSTEM)
                         decodedString = string.replace(decodedString, 'https://' + LOBCDER_URL + LOBCDER_ROOT_IN_WEBDAV , LOBCDER_ROOT_IN_FILESYSTEM)
                         decodedString = string.replace(decodedString, LOBCDER_PATH_PREFIX, LOBCDER_ROOT_IN_FILESYSTEM)
