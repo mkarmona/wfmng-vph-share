@@ -1013,7 +1013,7 @@ def stopWorkflow(eid, ticket):
                 try:
                     serverManager.deleteWorkflow(server.workflowId, ticket)
                     server.valid = False
-                    db.session.commit()                    
+                    db.session.commit()
                 except Exception, e:
                     sentry.captureException()
                     pass
@@ -1029,6 +1029,7 @@ def stopWorkflow(eid, ticket):
 def deleteExecution(eid, ticket):
     try:
         execution = Execution.query.filter_by(eid=eid).first()
+
         if stopWorkflow(eid, ticket):
             if execution.tavernaId != '':
                 server = TavernaServer.query.filter_by(workflowId=execution.tavernaId).first()
@@ -1040,12 +1041,20 @@ def deleteExecution(eid, ticket):
             if execution.workflowRunId != '':
                 workflow = Workflow.query.filter_by(workflowRunId=execution.workflowRunId).first()
                 if workflow:
+                    # get folder from workflow
+                    folder = workflow.outputfolder
+
                     db.session.delete(workflow)
                     db.session.commit()
+
+                    # delete folder
+                    deleteOutputFolder(folder,ticket)
+
             db.session.delete(execution)
             db.session.commit()
+
+
     except Exception, e:
-        sentry.captureException()
         return 'False'
     return 'True'
 
@@ -1089,7 +1098,6 @@ def getWorkflowInformation(eid, ticket):
 
         return ret
     except Exception, e:
-        sentry.captureException()
         return False
 
 def createOutputFolders(workflowId, inputDefinition, user, ticket):
@@ -1097,7 +1105,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
         Parses a baclava input definition file, create an output folder for the workflow with id workflowId,
         creates subfolders on it in case the input specifies a list of values, copy the input files into the newly
         created folders and finally modifies the input definition with the new pat of the input files
-        
+
         Arguments:
             workflowId (string): the workflow id
 
@@ -1105,7 +1113,7 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
 
             user (string): current user name
 
-            ticket (string): a valid authentication ticket      
+            ticket (string): a valid authentication ticket
     """
     LOBCDER_ROOT_IN_WEBDAV = app.config["LOBCDER_ROOT_IN_WEBDAV"]
     LOBCDER_ROOT_IN_FILESYSTEM = app.config["LOBCDER_ROOT_IN_FILESYSTEM"]
@@ -1211,13 +1219,38 @@ def createOutputFolders(workflowId, inputDefinition, user, ticket):
                                     webdav.mkdirs(outputfolder)
                             except:
                                 pass
-                        inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(decodedString), 1)  
+                        inputDefinition = inputDefinition.replace(dataElement['b:dataElementData'], base64.b64encode(decodedString), 1)
         ret['inputDefinition'] = inputDefinition
         ret['outputFolder'] = '/%s%s' % (WORKFLOWS_OUTPUT_FOLDER, workflowId)
     except Exception as e:
         sentry.captureException()
         raise Exception('Error creating output folder')
     return ret
+
+def deleteOutputFolder(folder, ticket):
+    """Delete output folder if possible
+
+        Arguments:
+            folder (string): the workflow object
+            ticket (string): a valid authentication ticket
+    """
+    LOBCDER_ROOT_IN_WEBDAV = app.config["LOBCDER_ROOT_IN_WEBDAV"]
+
+    userO = extractUserFromTicket(ticket)
+    user = userO['username']
+
+    folder = folder.strip("/")
+    #folder to delete
+    try:
+        webdav = easywebdav.connect(app.config["LOBCDER_URL"], app.config["LOBCDER_PORT"], username=user, password=ticket, protocol = 'https')
+        try:
+            if ((not '.' in folder) and (webdav.exists(LOBCDER_ROOT_IN_WEBDAV + folder) == True)):
+                webdav.rmdir(LOBCDER_ROOT_IN_WEBDAV + folder)
+
+        except:
+            pass
+    except:
+        pass
 
 ############################################################################
 # register xmlrpc callback
