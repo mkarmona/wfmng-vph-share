@@ -969,7 +969,9 @@ def execute_workflow(ticket, eid, workflowTitle, tavernaServerCloudId, workflowD
             outputFolder = ret_o['outputFolder']
             print "Outputfolder created: %s" % str(outputFolder)
         server.setWorkflowInputs(wfRunid, inputDefinition)
-        server.setExpiry(wfRunid, (datetime.now()+timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S.000+01:00"))
+        # Set workflow instance expiration date below. It's important that the expiration date fits the TTL of the ticket and the Default Run Lifetime (minutes) of the workflows
+        server.setExpiry(wfRunid, (datetime.now()+timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%S.000+01:00")) 
+        # create the workflow in the database
         workflow = Workflow(user['username'], wfRunid, workflowTitle, outputFolder)
         db.session.add(workflow)
         execution.status = 6
