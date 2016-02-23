@@ -1018,7 +1018,7 @@ def execute_workflow(ticket,
         try:
             wfRunid = server.createWorkflow(workflowDefinition)
         except Exception, e:
-            ## here start the implementation of the workaround
+            # here start the implementation of the workaround
             # the workaround restart anytime the Taverna Server in the cloud
             # until the WM is not able to submit the workflow.
             workflow_worker_built_failed = (
@@ -1031,7 +1031,10 @@ def execute_workflow(ticket,
             else:
                 raise Exception(e)
             pass
-        server.valid = True  #mark the Taverna server as valid so other execution can user the same server
+
+        # mark the Taverna server as valid so other execution
+        # can user the same server
+        server.valid = True
         db.session.commit()
         print "Workflow submited - workflow run id: %s" % str(wfRunid)
         execution.workflowRunId = wfRunid
@@ -1072,21 +1075,28 @@ def execute_workflow(ticket,
             server.setPluginProperties(wfRunid, pluginPropertiesFileName,
                                        propertiesFileContent)
         # process baclava file to create output folders
-        #TODO code optimization of createOutputfolder method
+        # TODO code optimization of createOutputfolder method
         ret_o = createOutputFolders(wfRunid, inputDefinition, user['username'],
                                     ticket)
-        if not 'inputDefinition' in ret_o or ret_o['inputDefinition'] == "":
+        if 'inputDefinition' not in ret_o or ret_o['inputDefinition'] == "":
             raise Exception('Error creating output folder')
         else:
             inputDefinition = ret_o['inputDefinition']
             outputFolder = ret_o['outputFolder']
             print "Outputfolder created: %s" % str(outputFolder)
         server.setWorkflowInputs(wfRunid, inputDefinition)
+
+        # Set workflow instance expiration date below. It's important that
+        # the expiration date fits the TTL of the ticket and the Default Run
+        # Lifetime (minutes) of the workflows
         server.setExpiry(wfRunid,
-                         (datetime.now() + timedelta(
-                             days=1)).strftime("%Y-%m-%dT%H:%M:%S.000+01:00"))
-        workflow = Workflow(user['username'], wfRunid, workflowTitle,
-                            outputFolder)
+                         (datetime.now() +
+                          timedelta(days=7))
+                         .strftime("%Y-%m-%dT%H:%M:%S.000+01:00"))
+        # create the workflow in the database
+        workflow = Workflow(user['username'], wfRunid,
+                            workflowTitle, outputFolder)
+
         db.session.add(workflow)
         execution.status = 6
         db.session.commit()
@@ -1109,7 +1119,7 @@ def execute_workflow(ticket,
         db.session.commit()
         stopWorkflow(eid, ticket)
         exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        # fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         return 'False'
     return 'True'
 
@@ -1129,19 +1139,21 @@ def stopWorkflow(eid, ticket):
                 if workflow:
                     workflow.status = "Deleted"
                 db.session.commit()
+            # Execution.query.filter_by(tavernaId=server.workflowId)
+            #   .count() == 0:
             if server and server.getWorkflowRunNumber(
-            ) == 0:  #Execution.query.filter_by(tavernaId=server.workflowId).count() == 0:
+            ) == 0:
                 try:
                     serverManager.deleteWorkflow(server.workflowId, ticket)
                     server.valid = False
                     db.session.commit()
-                except Exception, e:
+                except Exception:
                     sentry.captureException()
                     pass
         return True
-    except Exception, e:
+    except Exception:
         exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        # fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         sentry.captureException()
         pass
     return False
